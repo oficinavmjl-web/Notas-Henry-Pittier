@@ -1,0 +1,61 @@
+Esta guía técnica detalla la integración del **`modulo-usuarios`** en el frontend, centrada principalmente en la funcionalidad de **auditoría y rastreo de cambios críticos** del sistema.
+
+### 1. Especificación del Endpoint
+La comunicación se realiza mediante peticiones `POST` al servicio de Edge Functions.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-usuarios`
+*   **Headers Obligatorios:** `authorization` (Bearer token del usuario), `apikey` y `content-type: application/json`.
+
+### 2. Estructura del Objeto de Auditoría
+El módulo interactúa con la tabla `audit_log`, la cual registra automáticamente operaciones de `INSERT`, `UPDATE` y `DELETE` en tablas críticas (como notas e inscripciones) mediante triggers de base de datos.
+
+**Campos devueltos en la consulta:**
+*   `id`: Identificador único del log.
+*   `tabla`: Nombre de la tabla afectada (ej: `calificaciones`).
+*   `operacion`: Tipo de cambio (`INSERT`, `UPDATE`, `DELETE`).
+*   `registro_id`: ID del registro modificado.
+*   `cambios`: Objeto JSONB que contiene el estado anterior y nuevo de los datos.
+*   `perfiles`: Objeto anidado con `nombres`, `apellidos` y `username` del usuario que realizó la acción.
+
+### 3. Implementación en el Frontend (Acción: `consultar-auditoria`)
+Para que **GitHub Copilot** genere el código correctamente, utiliza este patrón de integración:
+
+```typescript
+/**
+ * Consulta el registro de auditoría con filtros dinámicos.
+ * Requiere permisos de Superadmin (Rol 5).
+ */
+async function fetchAuditLogs(filters: { 
+  tabla?: string, 
+  operacion?: string, 
+  usuario_id?: string, 
+  registro_id?: string,
+  limit?: number 
+}) {
+  const { data, error } = await supabase.functions.invoke('modulo-usuarios', {
+    body: { 
+      action: 'consultar-auditoria',
+      ...filters 
+    },
+  });
+
+  if (error) throw error;
+  return data; // Retorna { ok: true, conteo: number, registros: [] }
+}
+```
+
+### 4. Flujos de Filtro Dinámico
+El frontend puede implementar una interfaz de búsqueda avanzada enviando los siguientes parámetros opcionales en el body:
+*   **Filtrar por Tabla:** Útil para ver todos los cambios en `evaluaciones_notas`.
+*   **Filtrar por Usuario:** Para rastrear la actividad de un docente específico.
+*   **Filtrar por Registro:** Para ver el historial de cambios de una calificación particular usando su `registro_id`.
+*   **Paginación:** Uso del parámetro `limit` (por defecto 100) para controlar la carga de datos.
+
+### 5. Seguridad y Control de Acceso (RBAC)
+Esta función implementa una restricción de seguridad estricta a nivel de servidor:
+*   **Validación de Superadmin:** La función ejecuta el RPC `current_user_roles` y verifica que el usuario posea el **Rol 5**.
+*   **Respuesta de Denegación:** Si un usuario con otro rol (ej. Docente o Directivo) intenta acceder, la función lanza un error 400 con el mensaje: *"Acceso denegado: Solo el Superadmin puede consultar los registros de auditoría"*.
+
+### 6. Consideraciones Técnicas de Datos
+*   **Ordenamiento:** Los registros se devuelven automáticamente en orden descendente por fecha (`created_at`), mostrando lo más reciente primero.
+*   **Visibilidad de Cambios:** El campo `cambios` es fundamental para el soporte técnico, ya que permite reconstruir datos borrados accidentalmente comparando el objeto `old` con el `new` guardado en el JSONB.

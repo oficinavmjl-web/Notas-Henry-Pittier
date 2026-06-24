@@ -1,0 +1,57 @@
+Esta es la guía técnica de integración para el **`modulo-evaluaciones`**, el cual gestiona la planificación del plan de evaluación (porcentajes, técnicas e instrumentos) que sustenta la carga de notas.
+
+### 1. Especificación del Endpoint
+Este módulo centraliza la lógica de validación de porcentajes institucionales antes de permitir la creación de evaluaciones en la base de datos.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-evaluaciones`
+*   **Método:** `POST`
+*   **Headers:** Requiere `authorization` (JWT), `apikey` y `content-type: application/json`.
+
+### 2. Estructura de Datos (Evaluación Académica)
+Al definir una evaluación, los objetos deben cumplir con el esquema de la tabla `evaluaciones_lapsos`:
+*   **`nombre`**: Descripción de la actividad (ej. "Examen Parcial I").
+*   **`porcentaje`**: Valor porcentual. **Regla Crítica:** Según el constraint `evaluaciones_lapsos_porcentaje_check`, ninguna evaluación individual puede exceder el **25%**.
+*   **`lapso_id`**: El lapso al que pertenece (1, 2 o 3).
+*   **`materia_id`** y **`seccion_id`**: Referencias obligatorias para vincular la planificación.
+*   **`tecnica`** / **`instrumento`**: Campos de texto descriptivos para la metodología pedagógica.
+
+### 3. Implementación en el Frontend (TypeScript)
+Este ejemplo muestra cómo registrar una nueva evaluación asegurando que se capturen las validaciones de negocio del servidor.
+
+```typescript
+/**
+ * Registra una evaluación en el plan de estudio.
+ * La suma de porcentajes no debe exceder el 100% por materia/lapso.
+ */
+async function crearPlanEvaluacion(payload: {
+  nombre: string,
+  porcentaje: number,
+  materia_id: number,
+  seccion_id: number,
+  lapso_id: number,
+  docente_id: string
+}) {
+  const { data, error } = await supabase.functions.invoke('modulo-evaluaciones', {
+    body: { 
+      action: 'crear-evaluacion',
+      ...payload 
+    }
+  });
+
+  if (error) throw error;
+  return data; // Retorna { ok: true, id_evaluacion: number }
+}
+```
+
+### 4. Reglas de Integridad y Validación
+El sistema cuenta con mecanismos automáticos para evitar errores de planificación:
+*   **Validación de Topes:** Existe un trigger (`before_evaluacion_porcentaje`) que invoca a la función `validar_porcentaje_evaluacion`. Esta función suma todos los porcentajes ya creados para esa materia, sección y lapso; si la nueva evaluación hace que el total supere el **100%**, la operación es rechazada.
+*   **Fechas de Lapso:** Cualquier evaluación creada debe tener una fecha que se encuentre dentro del rango `fecha_inicio` y `fecha_fin` del lapso correspondiente en la tabla `lapsos`.
+
+### 5. Seguridad y Roles (RBAC)
+El acceso está definido por las políticas de **RLS (Row Level Security)** de la tabla `evaluaciones`:
+*   **Docentes (Rol 1):** Solo pueden crear, editar o eliminar evaluaciones si el `docente_id` coincide con su propio `auth.uid()` (política `evaluaciones_docente_own`).
+*   **Directivos (Rol 4) y Superadmins (Rol 5):** Tienen permisos globales de gestión para supervisar o corregir planes de evaluación (política `superadmin_all_evaluaciones`).
+
+### 6. Relación con el Módulo de Notas
+Es fundamental que el frontend notifique al usuario que una vez definida una evaluación en este módulo, aparecerá automáticamente como columna disponible en el **`modulo-notas`** para el registro de calificaciones de los estudiantes. No se pueden cargar notas sin haber definido primero la evaluación en este módulo.

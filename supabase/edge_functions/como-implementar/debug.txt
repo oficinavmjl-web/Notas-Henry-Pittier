@@ -1,0 +1,53 @@
+Esta es la guía técnica de integración para la Edge Function **`debug`**, una herramienta de diagnóstico profundo diseñada para administradores y desarrolladores. A diferencia de `ping`, esta función realiza una inspección exhaustiva del estado de autenticación, roles jerárquicos y el contexto académico activo.
+
+### 1. Especificación del Endpoint
+Este servicio permite identificar fallos de configuración en el entorno de Supabase o problemas de permisos a nivel de usuario.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/debug`
+*   **Método:** `POST` / `GET`
+*   **Headers:** Requiere `authorization` (Bearer token) para diagnosticar el estado del usuario, `apikey` y `content-type: application/json`.
+
+### 2. Capas de Diagnóstico (Objeto `diagnostics`)
+La función devuelve un objeto detallado que cubre los siguientes puntos críticos:
+
+*   **Variables de Entorno:** Confirma si `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` están correctamente inyectadas en el entorno de ejecución.
+*   **Estado de Autenticación:** Informa si el token enviado es válido y extrae el `user_id` del contexto.
+*   **Roles Jerárquicos:** Invoca la función RPC `current_user_roles` para listar los IDs de rol asociados al usuario (ej. 4 para Directivo, 5 para Superadmin).
+*   **Contexto Académico:** Verifica en tiempo real mediante `obtener_anio_activo` si existe un año escolar abierto y si tiene lapsos vinculados.
+
+### 3. Implementación Sugerida para Frontend (TypeScript)
+Utiliza este patrón para depurar problemas de acceso o errores de "año escolar no encontrado".
+
+```typescript
+/**
+ * Realiza un diagnóstico profundo del sistema y del usuario actual.
+ * Útil para soporte técnico y depuración de roles.
+ */
+async function runSystemDebug() {
+  const { data, error } = await supabase.functions.invoke('debug');
+
+  if (error) {
+    // Retorna el estado parcial de los diagnósticos capturados antes del fallo
+    console.error("Debug falló:", error.context);
+    return { ok: false, diagnostics: error.diagnostics };
+  }
+
+  // data retorna: { ok: true, diagnostics: { auth, roles, academic_context, env } }
+  return data;
+}
+```
+
+### 4. Detección de "Lapsos Huérfanos"
+Una de las funcionalidades más importantes de este módulo es la detección de inconsistencias administrativas:
+*   **Lógica:** Identifica situaciones donde un administrador ha abierto un año escolar pero ha olvidado activar el nuevo lapso.
+*   **Utilidad:** Previene errores en cascada en las funciones de inscripción y carga de notas que dependen de un periodo activo.
+
+### 5. Seguridad y Manejo de Errores
+*   **CORS:** Implementa el manejo de `OPTIONS` para permitir llamadas seguras desde herramientas de desarrollo o paneles administrativos.
+*   **Manejo de Errores Descriptivo:** Si una parte del diagnóstico falla, la función no se detiene; devuelve el estado parcial de los diagnósticos para que el desarrollador sepa exactamente qué prueba no se superó.
+*   **RBAC:** Aunque la función puede ser llamada por cualquier usuario, la profundidad de la información sobre el contexto académico ayuda a determinar por qué un usuario específico no puede ver ciertas secciones o materias.
+
+### 6. Casos de Uso
+*   **Soporte Técnico:** Solicitar al usuario que ejecute el debug cuando reporte que "no tiene permisos" a pesar de tener el rol asignado.
+*   **Validación de Despliegue:** Verificar que las variables de entorno se hayan propagado correctamente tras un despliegue en producción.
+*   **Auditoría de Contexto:** Confirmar qué año y lapso está reconociendo el servidor como "activos" antes de realizar cierres administrativos.

@@ -1,0 +1,65 @@
+Esta es la guía técnica de integración para el **`modulo-notas`**, el motor encargado de la validación, persistencia y auditoría de las calificaciones académicas, integrando reglas de negocio críticas para la integridad de los datos.
+
+### 1. Especificación del Endpoint
+El módulo gestiona operaciones de cruce de datos y validaciones preventivas antes del cierre de periodos.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-notas`
+*   **Método:** `POST`
+*   **Headers:** Requiere `authorization` (Bearer token), `apikey` y `content-type: application/json`.
+
+### 2. Acción Principal: `verificar-completitud-notas`
+Esta acción es un control de calidad indispensable antes de finalizar un lapso. Cruza las evaluaciones planificadas contra las notas efectivamente cargadas por cada estudiante.
+
+**Parámetros del Body:**
+*   `id_seccion`: ID de la sección a consultar.
+*   `id_materia`: ID de la materia.
+*   `id_lapso`: ID del lapso (1, 2 o 3).
+
+**Lógica de Ejecución:**
+1.  Consulta el plan de evaluación en `evaluaciones_lapsos`.
+2.  Filtra los estudiantes con estado `'activo'` en la tabla `inscripciones`.
+3.  Calcula el `total_esperado` (Evaluaciones × Estudiantes) y lo compara con los registros en `evaluaciones_notas`.
+4.  Retorna un resumen de **completitud** y el detalle de los registros faltantes.
+
+### 3. Implementación Sugerida para Frontend (TypeScript)
+Utiliza este patrón para facilitar la indexación de **GitHub Copilot**:
+
+```typescript
+/**
+ * Verifica si faltan notas por cargar en una materia/sección específica.
+ * Útil para validaciones previas al cierre de actas.
+ */
+async function checkGradesCompletion(seccionId: number, materiaId: number, lapsoId: number) {
+  const { data, error } = await supabase.functions.invoke('modulo-notas', {
+    body: { 
+      action: 'verificar-completitud-notas',
+      id_seccion: seccionId,
+      id_materia: materiaId,
+      id_lapso: lapsoId
+    }
+  });
+
+  if (error) throw new Error(`Error de validación: ${error.message}`);
+  
+  // Retorna { ok: boolean, resumen: { completitud: "X/Y", faltantes_conteo: number }, detalles_faltantes: [] }
+  return data; 
+}
+```
+
+### 4. Reglas de Negocio e Integridad en Base de Datos
+La integración con el frontend debe considerar los procesos automatizados del lado del servidor:
+
+*   **Ventanas de Carga:** Existe un trigger (`trigger_validar_calificacion_ventana`) que invoca a la función `validar_calificacion_ventana`. Este bloquea cualquier inserción o modificación en la tabla `calificaciones` si la fecha actual está fuera de los rangos `inicio_carga` y `fin_carga` definidos en el módulo de periodos.
+*   **Cálculo Automático de Promedios:** Al insertar o actualizar una nota en `evaluaciones_notas`, el trigger `trg_actualizar_promedio` ejecuta la función `actualizar_promedio_final`. Esto actualiza automáticamente el campo `promedio_final` en la tabla `inscripciones`.
+*   **Restricción de Rango:** Las notas deben ser valores numéricos entre **1 y 20** (validado por `calificaciones_nota_check`).
+
+### 5. Formateo Institucional (Regla del 01)
+Al mostrar notas en reportes o vistas de resumen, el sistema aplica reglas específicas mediante el helper `formatNota`:
+*   **Redondeo:** Se aplica redondeo al entero más cercano (`Math.round`).
+*   **Dos Dígitos:** Las notas menores a 10 deben mostrar un cero a la izquierda (ej. "08").
+*   **Estudiantes Retirados:** Si el estado de inscripción del alumno es `'retirado'`, la nota visual debe ser reemplazada por el string **`'RET'`**.
+
+### 6. Seguridad y Roles (RBAC)
+*   **Docentes (Rol 1):** Tienen permiso de escritura (`INSERT`/`UPDATE`) solo en evaluaciones asociadas a su `docente_id` y siempre que la ventana de carga esté abierta.
+*   **Asesores:** Pueden consultar las notas de todos los estudiantes de su sección asignada a través de la política `calificaciones_asesor_read`.
+*   **Superadmin (Rol 5):** Tiene acceso total a la gestión de calificaciones sin restricciones de ventana.

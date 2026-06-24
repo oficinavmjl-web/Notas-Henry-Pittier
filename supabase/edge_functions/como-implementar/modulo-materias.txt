@@ -1,0 +1,69 @@
+Esta es la guía técnica de integración para el **`modulo-materias`**, el cual gestiona tanto el catálogo maestro de asignaturas como su vinculación con las secciones y la asignación de la carga docente.
+
+### 1. Especificación del Endpoint
+Este módulo actúa como el controlador para la malla curricular y la asignación de profesores.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-materias`.
+*   **Método:** `POST`.
+*   **Headers:** Requiere `authorization` (Bearer token), `apikey` y `content-type: application/json`.
+
+### 2. Estructura de Datos (Materia Académica)
+Al interactuar con el catálogo, los objetos deben seguir el esquema de la tabla `materias`:
+*   **`nombre`**: String único que identifica la asignatura (ej. "Matemáticas I").
+*   **`descripcion`**: Texto opcional con el contenido programático.
+*   **`id_materia`**: Identificador único (PK) generado automáticamente.
+
+### 3. Acciones Disponibles (Payloads)
+
+#### A. Gestión del Catálogo Maestro
+*   **`crear-materia`**: Registra una nueva asignatura en el sistema. El nombre es **único** y su duplicación generará un error.
+*   **`listar-todas`**: Retorna el catálogo completo de materias disponibles para inscripción.
+
+#### B. Asignación a Secciones
+*   **`agregar-materia-seccion`**: Vincula una materia a una sección específica.
+    *   **Validación:** Verifica que tanto la sección como la materia existan antes de la inserción.
+    *   **Prevención de Duplicados:** Si la materia ya está asignada a la sección, retorna un error descriptivo.
+*   **`quitar-materia-seccion`**: Elimina la relación entre una materia y una sección.
+
+#### C. Carga Docente
+*   **`asignar-docente`**: Establece qué profesor dictará la materia en una sección.
+    *   **Regla de Negocio:** Valida que el usuario tenga el **Rol 1 (Docente)** y que la materia ya pertenezca a la sección.
+*   **`cambiar-docente`**: Permite la sustitución de un docente por otro en una materia ya asignada, devolviendo los datos del docente anterior para fines de auditoría.
+
+### 4. Implementación en el Frontend (TypeScript)
+Integración sugerida para que **GitHub Copilot** asista en el desarrollo:
+
+```typescript
+/**
+ * Asigna una materia a una sección y vincula al docente responsable.
+ */
+async function configurarCargaAcademica(seccionId: number, materiaId: number, docenteId: string) {
+  // 1. Agregar materia a la sección
+  const addMateria = await supabase.functions.invoke('modulo-materias', {
+    body: { action: 'agregar-materia-seccion', p_id_seccion: seccionId, p_id_materia: materiaId }
+  });
+
+  if (addMateria.data?.ok) {
+    // 2. Asignar docente responsable
+    return await supabase.functions.invoke('modulo-materias', {
+      body: { 
+        action: 'asignar-docente', 
+        p_id_seccion: seccionId, 
+        p_id_materia: materiaId, 
+        p_id_docente: docenteId 
+      }
+    });
+  }
+  
+  throw new Error(addMateria.data?.error || "Error en asignación");
+}
+```
+
+### 5. Seguridad y Roles (RBAC)
+El acceso a este módulo está fuertemente regulado por políticas de **RLS**:
+*   **Lectura Global:** Todos los usuarios autenticados pueden consultar el catálogo de materias (`materias_read_all`).
+*   **Gestión Administrativa:** Solo los roles **Directivo (4)** y **Superadmin (5)** pueden crear, editar o asignar materias a secciones.
+*   **Consulta de Carga:** Los docentes pueden ver las materias que tienen asignadas a través de la política `dms_select`.
+
+### 6. Consultas Relacionadas
+Para mostrar la carga académica completa, el frontend puede invocar la función RPC `listar_materias_seccion`, la cual devuelve un JSON estructurado con el nombre de la materia y los datos básicos del docente asignado (nombres, apellidos e ID).

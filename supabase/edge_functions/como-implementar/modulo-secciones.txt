@@ -1,0 +1,60 @@
+Esta es la guía técnica de integración para el **`modulo-secciones`**, el cual centraliza la administración de la infraestructura académica (grados, secciones y asignación de carga docente).
+
+### 1. Especificación del Endpoint
+La función actúa como un orquestador para las operaciones complejas de secciones definidas en el esquema de la base de datos.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-secciones`
+*   **Método:** `POST`
+*   **Headers:** Requiere `authorization` (JWT del usuario), `apikey` y `content-type: application/json`.
+
+### 2. Estructura de Datos (Secciones)
+Al interactuar con este módulo, los objetos deben seguir la estructura de la tabla `secciones`:
+*   **`nombre`**: String (ej. "Primer Año A").
+*   **`grado`**: Integer (rango validado de 1 a 5).
+*   **`letra`**: String de un solo carácter (ej. "A", "B").
+*   **`anio_escolar_id`**: Referencia obligatoria a un año escolar existente.
+
+### 3. Acciones Disponibles (Payloads)
+
+#### A. Gestión de Secciones (CRUD y Estado)
+*   **`crear-seccion`**: Requiere `nombre`, `grado`, `letra` y `anio_escolar_id`. El sistema previene automáticamente la creación de secciones duplicadas (mismo grado/letra en el mismo año).
+*   **`editar-seccion`**: Permite modificar los metadatos de una sección existente mediante su `id_seccion`.
+*   **`listar-secciones`**: Devuelve el catálogo de secciones filtrado por `anio_escolar_id` y opcionalmente por estado `activo`.
+*   **`toggle-seccion`**: Cambia el estado de activación de la sección (útil para cierres administrativos).
+
+#### B. Clonación y Migración
+*   **`clonar-seccion`**: Copia una sección dentro del mismo año escolar, incluyendo todas sus materias y docentes asignados.
+*   **`clonar-seccion-otro-anio`**: Permite migrar la estructura de una sección a un año escolar diferente (útil para la planificación del nuevo periodo).
+
+#### C. Carga Académica (Materias y Docentes)
+*   **`asignar-materia`**: Vincula una materia a la sección mediante `agregar_materia_seccion`.
+*   **`asignar-docente`**: Establece qué docente dictará una materia específica en esa sección. Valida internamente que el usuario tenga el **Rol 1 (Docente)**.
+*   **`listar-materias-seccion`**: Retorna un JSON con el plan de estudios de la sección y los datos del docente asignado a cada asignatura.
+
+### 4. Ejemplo de Implementación (TypeScript)
+```typescript
+/**
+ * Ejemplo de asignación de carga docente a una sección
+ */
+async function asignarDocenteASeccion(idSeccion: number, idMateria: number, idDocente: string) {
+  const { data, error } = await supabase.functions.invoke('modulo-secciones', {
+    body: { 
+      action: 'asignar-docente',
+      p_id_seccion: idSeccion,
+      p_id_materia: idMateria,
+      p_id_docente: idDocente 
+    }
+  });
+
+  if (error) return { ok: false, error: error.message };
+  return data; // { ok: true, mensaje: "Docente asignado correctamente" }
+}
+```
+
+### 5. Reglas de Negocio e Integridad
+*   **Validación de Grados:** La base de datos rechaza cualquier grado fuera del rango 1-5 mediante un constraint de validación (`secciones_grado_check`).
+*   **Seguridad (RBAC):** La gestión de secciones está restringida por políticas de **RLS**. Solo usuarios con **Rol 4 (Directivo)** o **Rol 5 (Superadmin)** tienen permisos de escritura. Los docentes tienen permiso de lectura para consultar su carga académica.
+*   **Manejo de Errores:** Si intentas asignar una materia que ya existe en la sección, la función devolverá un error descriptivo: `"La materia ya está asignada a esta sección"`.
+
+### 6. Relaciones Críticas
+Al listar secciones, el frontend puede esperar datos relacionados de las tablas `seccion_materias` y `docente_materia_seccion` para mostrar el panorama completo de la planificación académica.

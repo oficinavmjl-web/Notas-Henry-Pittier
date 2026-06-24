@@ -1,0 +1,73 @@
+Esta guía técnica detalla la integración del modulo-estudiantes en el frontend, basándose en la arquitectura de las Edge Functions de tu sistema y la estructura de la base deos en los archivos de esquema y tipos
+.
+1. Configuración de la Solicitud (Request)
+La comunicación se realiza mediante el cliente de Supabase hacia la URL del proyecto. Es indispensable manejar las cabeceras CORS para evitar bloqueos del navegador, las cuales ya están pre-configuradas en el servidor para aceptar authorization, apikey y content-type
+.
+Endpoint sugerido: https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-estudiantes
+2. Estructura de Datos para el Estudiante
+Al integrar formularios de registro o edición, debes respetar el esquema definido en la tabla estudiantes
+:
+Campos Obligatorios:
+cedula: String (máx 20 caracteres, debe ser única)
+.
+nombres / apellidos: String (máx 100 caracteres)
+.
+fecha_nacimiento: Date (formato ISO YYYY-MM-DD)
+.
+Campos Opcionales/Validados:
+sexo: Solo permite 'M' o 'F'
+.
+activo: Booleano (por defecto true)
+.
+representante / telefono_representante: Texto informativo
+.
+3. Implementación en el Frontend (TypeScript)
+Para asegurar que GitHub Copilot asista correctamente, define una función de llamada que use el patrón de acciones (action) observado en otros módulos del sistema
+.
+import { createClient } from '@supabase/supabase-js';
+
+// Inicialización del cliente
+const supabase = createClient(URL, ANON_KEY);
+
+/**
+ * Función para interactuar con el módulo de estudiantes
+ * @param action - 'registrar-estudiante' | 'actualizar-datos' | 'consultar-expediente'
+ * @param payload - Datos del estudiante o filtros
+ */
+async function callModuloEstudiantes(action: string, payload: any) {
+  const { data, error } = await supabase.functions.invoke('modulo-estudiantes', {
+    body: { action, ...payload },
+  });
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+4. Flujos Críticos de Integración
+A. Inscripción y Prevención de Duplicados
+La base de datos cuenta con un trigger (trg_prevenir_inscripcion_duplicada) que impide inscribir a un estudiante dos veces en el mismo año escolar
+. Tu frontend debe capturar el error P0001 para mostrar un mensaje amigable al usuario
+.
+B. Retiro de Estudiantes
+Para dar de baja a un alumno, el sistema utiliza la función RPC fn_retirar_estudiante
+. Esta operación:
+Verifica que la inscripción exista
+.
+Valida que el estado no sea ya 'retirado'
+.
+Actualiza el estado en la tabla inscripciones
+.
+C. Visualización de Notas y Formatos
+Al mostrar reportes de estudiantes, utiliza la lógica de redondeo institucional: las notas deben redondearse al entero más cercano y mostrarse con dos dígitos (ej. "08")
+. Si el estado del estudiante en la inscripción es 'retirado', el frontend debe priorizar mostrar la etiqueta 'RET' sobre cualquier valor numérico
+.
+5. Seguridad y Roles (RBAC)
+La integración desde el frontend está sujeta a las políticas de Row Level Security (RLS)
+:
+Solo los usuarios con roles de Control de Estudios (2), Directivo (4) o Superadmin (5) pueden realizar inserciones, actualizaciones o eliminaciones de registros de estudiantes
+.
+Los Docentes (1) tienen permiso de solo lectura para estudiantes que pertenezcan a sus secciones asignadas mediante la tabla docente_materia_seccion
+.
+6. Manejo de Errores Estandarizado
+El módulo está diseñado para devolver errores en formato JSON con un código de estado 400 en caso de fallos lógicos
+. Asegúrate de que tu componente de UI maneje el objeto { error: "mensaje" } que retorna la Edge Function
+.

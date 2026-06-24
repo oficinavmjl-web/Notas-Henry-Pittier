@@ -1,0 +1,66 @@
+Esta es la guía técnica de integración para el **`modulo-periodos`**, el cual se encarga de gestionar los tiempos académicos y, específicamente, de controlar las ventanas de tiempo en las que los docentes tienen permitido cargar calificaciones en el sistema.
+
+### 1. Especificación del Endpoint
+La función orquestadora de periodos y lapsos se encuentra en la siguiente ruta:
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/modulo-periodos`
+*   **Método:** `POST`
+*   **Headers:** Requiere `authorization` (Bearer token), `apikey` y `content-type: application/json`.
+
+### 2. Estructura de Datos (Ventanas de Carga)
+Al configurar los periodos de carga, se interactúa con la tabla **`lapsos`**. Los campos clave para esta integración son:
+*   **`id_lapso`**: Identificador único del lapso (1, 2 o 3) dentro del año escolar.
+*   **`inicio_carga`**: Timestamp (ISO String) que marca la apertura del sistema para notas (ej: `"2026-06-23T08:00:00Z"`).
+*   **`fin_carga`**: Timestamp (ISO String) que marca el cierre automático del sistema (ej: `"2026-07-15T23:59:59Z"`).
+
+### 3. Acción Principal: `configurar-ventanas-carga`
+Esta acción es fundamental para la administración académica, ya que activa restricciones a nivel de base de datos.
+
+**Payload esperado:**
+```json
+{
+  "action": "configurar-ventanas-carga",
+  "id_lapso": 123,
+  "inicio_carga": "2026-06-23T08:00:00Z",
+  "fin_carga": "2026-07-15T23:59:59Z"
+}
+```
+
+### 4. Implementación en el Frontend (TypeScript)
+Para asegurar una correcta asistencia de **GitHub Copilot**, utiliza este patrón de invocación:
+
+```typescript
+/**
+ * Define el rango de fechas permitido para que los docentes suban notas.
+ * Solo accesible para roles administrativos.
+ */
+async function setCargaWindow(idLapso: number, inicio: string, fin: string) {
+  const { data, error } = await supabase.functions.invoke('modulo-periodos', {
+    body: { 
+      action: 'configurar-ventanas-carga',
+      id_lapso: idLapso,
+      inicio_carga: inicio,
+      fin_carga: fin
+    }
+  });
+
+  if (error) throw error;
+  return data; // { ok: true, mensaje: "Ventana de carga configurada exitosamente.", lapso: [...] }
+}
+```
+
+### 5. Seguridad y Control de Acceso (RBAC)
+El acceso a este módulo es crítico y está restringido mediante validación de roles en el servidor:
+*   **Permisos:** Solo los roles administrativos (ID **2**, **4** y **5**) pueden ejecutar esta función.
+*   **Validación:** La función utiliza el RPC `current_user_roles` para verificar que el usuario tenga los privilegios necesarios antes de realizar cualquier actualización.
+
+### 6. Impacto en la Integridad (Triggers)
+Es importante que el frontend informe al usuario sobre las consecuencias de esta configuración:
+*   **Bloqueo Automático:** Al actualizar estas fechas, se activa el trigger **`trigger_validar_calificacion_ventana`** en la base de datos.
+*   **Efecto:** Cualquier intento de un docente por insertar o modificar una nota fuera de este rango de fechas será rechazado automáticamente por la base de datos, incluso si intenta hacerlo directamente a través de la API.
+
+### 7. Otras Funciones de Periodos
+Además de las ventanas de carga, este módulo facilita la gestión del ciclo de vida del lapso mediante funciones de base de datos como:
+*   **`activar_lapso`**: Establece un lapso como el actual para el año escolar.
+*   **`cerrar_lapso`**: Desactiva el lapso actual, impidiendo modificaciones posteriores.
+*   **`check_lapso_overlap`**: Trigger que previene que las fechas de inicio y fin de diferentes lapsos se solapen entre sí.

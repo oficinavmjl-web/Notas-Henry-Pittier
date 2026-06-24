@@ -1,0 +1,60 @@
+Esta es la guía técnica de integración para la Edge Function **`ping`**, diseñada como un servicio de **Health-Check** ligero para monitorear la disponibilidad del sistema y la latencia de la base de datos.
+
+### 1. Especificación del Endpoint
+A diferencia de los módulos académicos, esta función está optimizada para responder con la menor latencia posible, omitiendo validaciones complejas de identidad.
+
+*   **URL:** `https://slwbzfxwrxrsnlizapps.supabase.co/functions/v1/ping`.
+*   **Método:** `GET` / `POST`.
+*   **Headers:** Maneja `corsHeaders` para permitir llamadas desde el frontend, incluyendo `authorization`, `apikey` y `content-type`.
+
+### 2. Propósito y Lógica de Ejecución
+La función realiza un diagnóstico rápido del entorno de ejecución y la conectividad:
+1.  **Verificación de Entorno:** Comprueba la existencia de `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`.
+2.  **Test de Base de Datos:** Ejecuta una consulta tipo `HEAD` (sin descarga de datos) a la tabla `anios_escolares` para confirmar que el servicio de base de datos y las políticas básicas están operativos.
+3.  **Cálculo de Latencia:** Utiliza `performance.now()` para medir el tiempo exacto de respuesta entre la Edge Function y la base de datos.
+
+### 3. Implementación Sugerida para Frontend (TypeScript)
+Ideal para ser usada en componentes de "Estado del Sistema" o antes de iniciar procesos de carga pesados.
+
+```typescript
+/**
+ * Verifica la salud del backend y mide la latencia.
+ * No requiere que el usuario esté autenticado (petición ligera).
+ */
+async function checkSystemHealth() {
+  const { data, error } = await supabase.functions.invoke('ping');
+
+  if (error) {
+    return { online: false, error: error.message };
+  }
+
+  // data retorna: { ok: true, database: "online", latency_ms: number, ... }
+  return {
+    online: data.ok,
+    latency: `${data.latency_ms.toFixed(2)}ms`,
+    dbStatus: data.database
+  };
+}
+```
+
+### 4. Estructura de Respuesta y Diagnósticos
+El objeto de respuesta permite al frontend determinar exactamente dónde está el fallo si el sistema no responde:
+
+| Campo | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `ok` | Boolean | `true` si el entorno y la DB están operativos. |
+| `database` | String | Estado de la conexión con PostgreSQL (`online`/`offline`). |
+| `latency_ms` | Number | Tiempo de respuesta de la consulta a la base de datos. |
+| `environment` | String | Indica si las variables de entorno están completas o incompletas. |
+
+### 5. Ventajas Técnicas
+*   **Sin Validación de JWT:** Al no verificar tokens de usuario (como sí lo hace el módulo `debug`), reduce drásticamente el consumo de recursos y el tiempo de respuesta.
+*   **Códigos de Estado Semánticos:** 
+    *   **200 OK:** Todo funciona correctamente.
+    *   **503 Service Unavailable:** Las variables de entorno existen pero la base de datos no responde.
+    *   **500 Internal Error:** Fallo crítico de configuración en Supabase.
+
+### 6. Casos de Uso en el Frontend
+*   **Indicador de Conexión:** Mostrar un ícono de "Sistema en línea" en el dashboard.
+*   **Pre-vuelo de Operaciones:** Verificar la conexión antes de que un docente inicie una carga masiva de notas para evitar pérdida de datos por desconexión.
+*   **Depuración Rápida:** Confirmar si un error de red es del cliente o de la infraestructura del servidor.
