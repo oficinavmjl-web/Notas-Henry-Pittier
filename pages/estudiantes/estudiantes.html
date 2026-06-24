@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Estudiantes</title>
+
+  <!-- Bootstrap -->
+  <link 
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" 
+    rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- CONTENIDO PRINCIPAL DEL MÓDULO -->
+  <div class="container mt-4">
+    <h2 class="mb-4">Gestión de Estudiantes</h2>
+
+    <!-- Aquí se cargará la tabla, filtros, botones, etc -->
+    <div id="contenidoEstudiantes"></div>
+  </div>
+
+  <!-- CONTENEDOR DONDE SE INSERTARÁN LOS MODALES DINÁMICAMENTE -->
+  <div id="modalesEstudiantes"></div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase.js"></script>
+
+  <!-- Módulo principal -->
+  <script src="/js/estudiantes/modulo_estudiantes.js"></script>
+
+  <!-- Scripts del módulo estudiantes -->
+  <script src="/js/estudiantes/cargar.js"></script>
+  <script src="/js/estudiantes/busqueda.js"></script>
+  <script src="/js/estudiantes/crear.js"></script>
+  <script src="/js/estudiantes/editar.js"></script>
+  <script src="/js/estudiantes/detalles.js"></script>
+  <script src="/js/estudiantes/historial_academico.js"></script>
+  <script src="/js/estudiantes/historial_evaluaciones.js"></script>
+  <script src="/js/estudiantes/promedios.js"></script>
+  <script src="/js/estudiantes/cambio_seccion.js"></script>
+  <script src="/js/estudiantes/promover.js"></script>
+  <script src="/js/estudiantes/repetir.js"></script>
+  <script src="/js/estudiantes/retirar.js"></script>
+  <script src="/js/estudiantes/helpers.js"></script>
+  <script src="/js/estudiantes/ordenamiento.js"></script>
+  <script src="/js/estudiantes/paginacion.js"></script>
+  <script src="/js/estudiantes/validaciones.js"></script>
+
+</body>
+</html>

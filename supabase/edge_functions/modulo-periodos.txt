@@ -1,0 +1,175 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, params } = await req.json()
+    const { user_role, user_id } = params 
+
+    // Seguridad: Solo roles 4 (Directivo) y 5 (Superadmin) para cambios estructurales [6, 7]
+    const accionesEscritura = ['crear_anio', 'cerrar_anio', 'crear_lapso', 'activar_lapso', 'cerrar_lapso'];
+    if (accionesEscritura.includes(action) && ![8, 9].includes(user_role)) {
+      throw new Error("No tiene permisos administrativos para esta acción.");
+    }
+
+    let result;
+
+    switch (action) {
+
+/**
+ * ACCIÓN: configurar-ventanas-carga
+ * Define el periodo de tiempo en el que los docentes pueden cargar notas.
+ * Impacto: Activa la validación del trigger 'trigger_validar_calificacion_ventana'.
+ */
+case 'configurar-ventanas-carga':
+  // 1. VALIDACIÓN DE SEGURIDAD: Solo roles administrativos (2, 4, 5)
+  const { data: userRoles } = await supabaseAdmin.rpc('current_user_roles');
+  const hasAdminAccess = userRoles?.some(r => [5-7].includes(r));
+  
+  if (!hasAdminAccess) {
+    throw new Error("No tiene permisos para modificar las ventanas de carga de notas.");
+  }
+
+  // 2. ACTUALIZACIÓN EN TABLA LAPSOS
+  // data.inicio_carga y data.fin_carga deben ser ISO Strings o Timestamps
+  const { data: resVentana, error: vError } = await supabaseAdmin
+    .from('lapsos')
+    .update({
+      inicio_carga: data.inicio_carga, // Ejemplo: "2026-06-23T08:00:00Z"
+      fin_carga: data.fin_carga       // Ejemplo: "2026-07-15T23:59:59Z"
+    })
+    .eq('id_lapso', data.id_lapso)
+    .select();
+
+  if (vError) throw vError;
+
+  return new Response(JSON.stringify({
+    ok: true,
+    mensaje: "Ventana de carga configurada exitosamente.",
+    lapso: resVentana
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      // --- MEJORA: MONITOR DE VENTANAS DE CARGA [5, 10] ---
+      case 'status_ventanas_carga': {
+        const { data: lapsos } = await supabaseAdmin
+          .from('lapsos')
+          .select('id_lapso, numero_lapso, inicio_carga, fin_carga, activo')
+          .eq('anio_escolar_id', params.id_anio);
+        
+        const ahora = new Date();
+        const status = lapsos?.map(l => {
+          const inicio = l.inicio_carga ? new Date(l.inicio_carga) : null;
+          const fin = l.fin_carga ? new Date(l.fin_carga) : null;
+          let fase = "Cerrada";
+          
+          if (inicio && fin && ahora >= inicio && ahora <= fin) fase = "Abierta";
+          else if (inicio && ahora < inicio) fase = "Próxima";
+          
+          return { ...l, estado_carga: fase };
+        });
+        result = { ok: true, lapsos: status };
+        break;
+      }
+
+      // --- MEJORA: READINESS PARA CIERRE DE LAPSO [11-13] ---
+      case 'check_readiness_cierre': {
+        const { id_lapso } = params;
+        // 1. Contar estudiantes inscritos en secciones del lapso
+        const { data: countEst } = await supabaseAdmin.rpc('get_total_estudiantes_lapso', { p_lapso: id_lapso }); 
+        // 2. Contar evaluaciones vs notas cargadas
+        const { data: evals } = await supabaseAdmin.from('evaluaciones_lapsos').select('id_evaluacion').eq('lapso_id', id_lapso);
+        const ids = evals?.map(e => e.id_evaluacion) || [];
+        const { count: notasCargadas } = await supabaseAdmin
+          .from('evaluaciones_notas')
+          .select('*', { count: 'exact', head: true })
+          .in('evaluacion_id', ids);
+
+        result = { 
+          listo_para_cierre: (notasCargadas || 0) >= (ids.length * (countEst || 0)),
+          detalle: { evaluaciones: ids.length, notas_totales: notasCargadas, estudiantes_esperados: countEst }
+        };
+        break;
+      }
+
+      // --- FUNCIONES CORE (SINTETIZADAS DE TUS FUENTES) ---
+      case 'crear_anio': // [3, 14]
+        const { data: nAnio, error: e1 } = await supabaseAdmin.rpc('crear_anio_escolar', {
+          p_nombre: params.nombre, p_fecha_inicio: params.fecha_inicio, p_fecha_fin: params.fecha_fin
+        });
+        if (e1) throw e1;
+        result = nAnio;
+        break;
+
+      case 'cerrar_anio': { // [2, 15]
+        const { data: abiertos } = await supabaseAdmin.from('lapsos').select('id_lapso').eq('id_anio', params.id_anio).eq('activo', true);
+        if (abiertos && abiertos.length > 0) throw new Error("Existen lapsos activos. Ciérrelos antes de finalizar el año.");
+        
+        const { data: cAnio, error: e2 } = await supabaseAdmin.rpc('cerrar_anio_escolar', { p_id_anio: params.id_anio });
+        if (e2) throw e2;
+        result = cAnio;
+        break;
+      }
+
+      case 'crear_lapso': // [4, 16]
+        const { data: nLapso, error: e3 } = await supabaseAdmin.rpc('crear_lapso', {
+          p_id_anio: params.id_anio, p_nombre: params.nombre, p_fecha_inicio: params.fecha_inicio, p_fecha_fin: params.fecha_fin
+        });
+        if (e3) throw e3;
+        result = nLapso;
+        break;
+
+      case 'activar_lapso': // [1, 17]
+        const { data: actL, error: e4 } = await supabaseAdmin.rpc('activar_lapso', { p_id_lapso: params.id_lapso });
+        if (e4) throw e4;
+        result = actL;
+        break;
+
+      case 'obtener_activo': // [5, 18]
+        const { data: anioAct, error: e5 } = await supabaseAdmin.rpc('obtener_anio_activo').single();
+        if (e5) throw new Error("No hay un año escolar activo actualmente.");
+        result = anioAct;
+        break;
+
+      case 'listar_lapsos': // [19, 20]
+        const { data: lapsosL, error: e6 } = await supabaseAdmin.rpc('obtener_lapsos', { p_id_anio: params.id_anio });
+        if (e6) throw e6;
+        result = lapsosL;
+        break;
+
+      default:
+        throw new Error("Acción no válida en el módulo de periodos.");
+    }
+
+    // MEJORA: Auditoría extendida de la acción administrativa [21, 22]
+    await supabaseAdmin.from('audit_log').insert({
+      tabla: 'periodos_logic',
+      operacion: `EDGE_FUNCTION_${action}`,
+      registro_id: params.id_anio || params.id_lapso,
+      usuario: user_id,
+      cambios: { params, result_status: 'success' }
+    });
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+})

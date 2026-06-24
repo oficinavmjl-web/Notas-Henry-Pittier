@@ -1,0 +1,182 @@
+ESTRUCTURA ACTUAL:
+
+/public
+   /css
+      bootstrap.min.css
+      bootstrap.min.css.map
+      styles.css
+   /js
+      /directivo
+         directivo.js
+         modulo_periodos.js
+         modulo_secciones.js
+         modulo_usuarios.js
+      /estudiantes
+        busqueda.js
+        cambio_seccion.js
+        cargar.js
+        crear.js
+        detalles.js
+        editar.js
+        helpers.js
+        historial_academico_js
+        historial_evaluaciones.js
+        modulo_estudiantes.js
+        ordenamiento.js
+        paginacion.js
+        promedios.js
+        promover.js
+        repetir.js
+        retirar.js
+        validaciones.js
+      /periodos
+      /secciones
+        agregar_materia.js
+        asignar_docente.js
+        busqueda.js
+        cargar.js
+        clonar.js
+        crear.js
+        editar.js
+        helpers.js
+        materias.js
+        ordenamiento.js
+        paginacion.js
+        validaciones.js
+      /usuarios
+      auth.js
+      bootstrap.min.js
+      bootstrap.min.js.map
+      docente.js
+      modulo_estudiantes.js
+      modulo_periodos.js
+      modulo_secciones.js
+      modulo_usuarios.js
+      supabase.js
+      utils.js
+   /pages
+      /directivo
+         /modulos
+            dashboard.html
+            periodos.html
+            secciones.html
+            usuarios.html
+         directivo.html
+      /estudiantes
+         /modales
+            modal_cambio_seccion.html
+            modal_crear.html
+            modal_detalles.html
+            modal_editar.html
+            modal_promover.html
+            modal_repetir.html
+            modal_retirar.html           
+         estudiantes.html
+      docente.html
+      login.html      
+      perfil.html
+      secciones.html
+   index.html
+   Estructura del Frontend.txt
+
+
+ESTRUCTURA SUGERIDA (aun falta):
+
+/public
+│
+├── /css
+│     ├── bootstrap.min.css
+│     ├── bootstrap.min.css.map
+│     └── styles.css
+│
+├── /js
+│     ├── supabase.js
+│     ├── utils.js
+│     ├── auth.js
+│     ├── bootstrap.min.js
+│     ├── bootstrap.min.js.map
+│
+│     ├── /directivo
+│     │      ├── directivo.js
+│     │      ├── modulo_dashboard.js
+│     │      ├── modulo_usuarios.js
+│     │      ├── modulo_secciones.js
+│     │      ├── modulo_periodos.js
+│     │      └── /helpers
+│     │             └── helpers_directivo.js   (opcional)
+│
+│     ├── /estudiantes
+│     │      ├── busqueda.js
+│     │      ├── cambio_seccion.js
+│     │      ├── cargar.js
+│     │      ├── crear.js
+│     │      ├── detalles.js
+│     │      ├── editar.js
+│     │      ├── helpers.js
+│     │      ├── historial_academico.js
+│     │      ├── historial_evaluaciones.js
+│     │      ├── modulo_estudiantes.js
+│     │      ├── ordenamiento.js
+│     │      ├── paginacion.js
+│     │      ├── promedios.js
+│     │      ├── promover.js
+│     │      ├── repetir.js
+│     │      ├── retirar.js
+│     │      └── validaciones.js
+│
+│     ├── /secciones
+│     │      ├── agregar_materia.js
+│     │      ├── asignar_docente.js
+│     │      ├── busqueda.js
+│     │      ├── cargar.js
+│     │      ├── clonar.js
+│     │      ├── crear.js
+│     │      ├── editar.js
+│     │      ├── helpers.js
+│     │      ├── materias.js
+│     │      ├── ordenamiento.js
+│     │      ├── paginacion.js
+│     │      └── validaciones.js
+│
+│     ├── /periodos
+│     │      ├── crear.js
+│     │      ├── editar.js
+│     │      ├── helpers.js
+│     │      └── modulo_periodos.js
+│
+│     └── /usuarios
+│            ├── crear.js
+│            ├── editar.js
+│            ├── helpers.js
+│            └── modulo_usuarios.js
+│
+├── /pages
+│     ├── login.html
+│     ├── perfil.html
+│
+│     ├── /directivo
+│     │      ├── directivo.html
+│     │      ├── /modulos
+│     │      │       ├── dashboard.html
+│     │      │       ├── usuarios.html
+│     │      │       ├── secciones.html
+│     │      │       └── periodos.html
+│     │      └── /modales
+│     │              ├── modal_usuario.html
+│     │              ├── modal_seccion.html
+│     │              └── modal_periodo.html
+│
+│     ├── /estudiantes
+│     │      ├── estudiantes.html
+│     │      └── /modales
+│     │             ├── modal_cambio_seccion.html
+│     │             ├── modal_crear.html
+│     │             ├── modal_detalles.html
+│     │             ├── modal_editar.html
+│     │             ├── modal_promover.html
+│     │             ├── modal_repetir.html
+│     │             └── modal_retirar.html
+│
+│     └── secciones.html   (si aún existe, luego se moverá a /directivo/modulos)
+│
+└── index.html

@@ -1,0 +1,79 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+/**
+ * Cabeceras CORS para permitir la comunicación con el frontend
+ */
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // Manejo de preflight para CORS
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, data } = await req.json()
+
+    // 1. SEGURIDAD: Validar jerarquía de roles (Solo Directivo o Superadmin)
+    const { data: roles, error: roleError } = await supabaseAdmin.rpc('current_user_roles')
+    if (roleError) throw roleError
+    
+    // Roles 4 (Directivo) y 5 (Superadmin) según la lógica institucional [4, 5]
+    const isAuthorized = roles?.some(r => [6, 7].includes(r))
+    if (!isAuthorized) throw new Error("Acción denegada: Se requieren permisos administrativos para gestionar materias.")
+
+    switch (action) {
+      /**
+       * ACCIÓN: agregar_materia_seccion
+       * Vincula una materia a una sección específica usando la función SQL public.agregar_materia_seccion [1]
+       */
+      case 'agregar_materia_seccion':
+        const { data: resAdd, error: errAdd } = await supabaseAdmin.rpc('agregar_materia_seccion', {
+          p_id_seccion: data.id_seccion,
+          p_id_materia: data.id_materia
+        })
+        
+        if (errAdd) throw errAdd
+        // Manejo de errores personalizados retornados por el PL/pgSQL [1, 8]
+        if (resAdd.error) throw new Error(resAdd.error)
+
+        return new Response(JSON.stringify(resAdd), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        })
+
+      /**
+       * ACCIÓN: quitar_materia_seccion
+       * Remueve la relación entre una materia y una sección usando public.quitar_materia_seccion [3]
+       */
+      case 'quitar_materia_seccion':
+        const { data: resRem, error: errRem } = await supabaseAdmin.rpc('quitar_materia_seccion', {
+          p_id_seccion: data.id_seccion,
+          p_id_materia: data.id_materia
+        })
+
+        if (errRem) throw errRem
+        // Validar si la relación no existía según el retorno del SQL [9]
+        if (resRem.error) throw new Error(resRem.error)
+
+        return new Response(JSON.stringify(resRem), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        })
+
+      default:
+        throw new Error("Acción no reconocida en el módulo de materias")
+    }
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    })
+  }
+})

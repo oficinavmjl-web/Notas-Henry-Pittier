@@ -1,0 +1,72 @@
+<div class="modal fade" id="modalCrearEstudiante" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Crear estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-3">
+
+          <div class="col-md-4">
+            <label class="form-label">Cédula</label>
+            <input id="cedulaCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Nombres</label>
+            <input id="nombresCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Apellidos</label>
+            <input id="apellidosCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Fecha de nacimiento</label>
+            <input id="fechaNacimientoCrear" type="date" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Sexo</label>
+            <select id="sexoCrear" class="form-select">
+              <option value="">Seleccione</option>
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Teléfono</label>
+            <input id="telefonoCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Dirección</label>
+            <input id="direccionCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Representante</label>
+            <input id="representanteCrear" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Teléfono del representante</label>
+            <input id="telefonoRepresentanteCrear" type="text" class="form-control">
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnGuardarEstudiante" class="btn btn-success">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+</div>

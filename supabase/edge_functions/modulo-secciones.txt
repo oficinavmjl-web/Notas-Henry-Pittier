@@ -1,0 +1,109 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, data } = await req.json()
+
+    // VALIDACIÓN DE SEGURIDAD: Verificar roles administrativos (3: Control Estudios, 4: Directivo, 5: Superadmin)
+    const { data: roles } = await supabaseAdmin.rpc('current_user_roles')
+    const hasAdminAccess = roles?.some(r => [5-7].includes(r))
+    if (!hasAdminAccess) throw new Error("Acción no autorizada para este nivel de usuario.")
+
+    switch (action) {
+      case 'listar':
+        const { data: listData, error: listErr } = await supabaseAdmin.rpc('listar_secciones', {
+          p_anio_escolar_id: data.anio_escolar_id,
+          p_activo: data.activo ?? null
+        })
+        if (listErr) throw listErr
+        return new Response(JSON.stringify(listData), { headers: corsHeaders })
+
+      case 'crear':
+        const { data: createData, error: createErr } = await supabaseAdmin.rpc('crear_seccion', {
+          p_nombre: data.nombre,
+          p_grado: data.grado,
+          p_letra: data.letra,
+          p_anio_escolar_id: data.anio_escolar_id
+        })
+        if (createErr) throw createErr
+        return new Response(JSON.stringify(createData), { headers: corsHeaders })
+
+      case 'editar':
+        const { data: editData, error: editErr } = await supabaseAdmin.rpc('editar_seccion', {
+          p_id_seccion: data.id_seccion,
+          p_nombre: data.nombre,
+          p_grado: data.grado,
+          p_letra: data.letra,
+          p_anio_escolar_id: data.anio_escolar_id
+        })
+        if (editErr) throw editErr
+        return new Response(JSON.stringify(editData), { headers: corsHeaders })
+
+      case 'toggle_status':
+        const { data: toggleData, error: toggleErr } = await supabaseAdmin.rpc('toggle_seccion', {
+          p_id_seccion: data.id_seccion
+        })
+        if (toggleErr) throw toggleErr
+        return new Response(JSON.stringify(toggleData), { headers: corsHeaders })
+
+      case 'clonar':
+        const { data: cloneData, error: cloneErr } = await supabaseAdmin.rpc('clonar_seccion', {
+          p_id_seccion_origen: data.id_seccion_origen,
+          p_nombre_nuevo: data.nombre_nuevo,
+          p_letra_nueva: data.letra_nueva
+        })
+        if (cloneErr) throw cloneErr
+        return new Response(JSON.stringify(cloneData), { headers: corsHeaders })
+
+      /**
+       * ACCIÓN: asignar-asesor
+       * Vincula a un docente con una sección para un año específico.
+       * Cumple con la restricción UNIQUE(seccion_id, anio_escolar_id) [4].
+       */
+      case 'asignar-asesor':
+        // Validar que el usuario sea efectivamente un Docente (Rol 1) [8]
+        const { data: isDocente } = await supabaseAdmin
+          .from('user_roles')
+          .select('id_rol')
+          .match({ user_id: data.docente_id, id_rol: 1 })
+          .single()
+
+        if (!isDocente) throw new Error("El usuario asignado no posee el rol de Docente.")
+
+        // Upsert para reemplazar al asesor si ya existe uno en ese año escolar [4, 9]
+        const { data: resAsesor, error: asErr } = await supabaseAdmin
+          .from('asesores_seccion')
+          .upsert({
+            docente_id: data.docente_id,
+            seccion_id: data.seccion_id,
+            anio_escolar_id: data.anio_escolar_id,
+            activo: true
+          }, { onConflict: 'seccion_id, anio_escolar_id' })
+          .select()
+
+        if (asErr) throw asErr
+        return new Response(JSON.stringify({ ok: true, data: resAsesor }), { headers: corsHeaders })
+
+      default:
+        throw new Error("Acción no reconocida")
+    }
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    })
+  }
+})

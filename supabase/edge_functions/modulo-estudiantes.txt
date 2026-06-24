@@ -1,0 +1,140 @@
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { action, data } = await req.json();
+    const authHeader = req.headers.get('Authorization')!;
+    const token = authHeader.replace('Bearer ', '');
+    
+    // VALIDACIÓN DE SEGURIDAD: Obtener roles del usuario solicitante
+    const { data: userRoles } = await supabaseAdmin.rpc('current_user_roles');
+    const isAdmin = userRoles.some((r: number) => [4-6].includes(r)); // Control de Estudios, Directivo, Superadmin
+
+    switch (action) {
+      case 'listar':
+        // Búsqueda multicampo y filtrado jerárquico (Fuente 199)
+        let query = supabaseAdmin.from('inscripciones').select(`
+          id_inscripcion, estado,
+          estudiantes (*),
+          secciones (id_seccion, nombre, grado, letra),
+          anios_escolares (nombre)
+        `);
+
+        if (data.search) {
+          query = query.or(`estudiantes.nombres.ilike.%${data.search}%,estudiantes.apellidos.ilike.%${data.search}%,estudiantes.cedula.ilike.%${data.search}%`);
+        }
+
+        // Restricción: Docentes (Rol 1) solo ven sus secciones asignadas
+        if (!isAdmin && userRoles.includes(1)) {
+          const { data: user } = await supabaseAdmin.auth.getUser(token);
+          const userId = user.user?.id;
+          const { data: secPermitidas } = await supabaseAdmin.rpc('listar_secciones_docente', { p_docente_id: userId });
+          query = query.in('seccion_id', secPermitidas || []);
+        }
+
+        const { data: listData, error: listErr } = await query;
+        if (listErr) throw listErr;
+        return new Response(JSON.stringify(listData), { headers: corsHeaders });
+
+      case 'inscribir':
+        // Inscripción y creación automática si no existe el estudiante (Fuente 197)
+        if (!isAdmin) throw new Error("No autorizado para realizar inscripciones");
+        const { data: existingEst } = await supabaseAdmin.from('estudiantes').select('id_estudiante').eq('cedula', data.cedula).single();
+        let estId = existingEst?.id_estudiante;
+
+        if (!estId) {
+          const { data: newEst, error: eErr } = await supabaseAdmin.from('estudiantes').insert({
+            cedula: data.cedula, nombres: data.nombres, apellidos: data.apellidos,
+            fecha_nacimiento: data.fecha_nacimiento, sexo: data.sexo
+          }).select().single();
+          if (eErr) throw eErr;
+          estId = newEst.id_estudiante;
+        }
+
+        const { error: insErr } = await supabaseAdmin.from('inscripciones').insert({
+          estudiante_id: estId, seccion_id: data.seccion_id,
+          anio_escolar_id: data.anio_escolar_id, estado: 'activo'
+        });
+        if (insErr) throw insErr;
+        return new Response(JSON.stringify({ ok: true, msg: "Estudiante inscrito" }), { headers: corsHeaders });
+
+      case 'cambiar_seccion':
+        // Actualización o traslado mediante upsert (Fuente 194)
+        if (!isAdmin) throw new Error("No autorizado");
+        const { error: upsertErr } = await supabaseAdmin.from('inscripciones').upsert({
+          estudiante_id: data.estudiante_id, anio_escolar_id: data.anio_escolar_id,
+          seccion_id: data.seccion_id, estado: 'activo'
+        }, { onConflict: 'estudiante_id,anio_escolar_id' });
+        if (upsertErr) throw upsertErr;
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+
+      case 'promover':
+        // Verificación académica y promoción al año siguiente (Fuente 205)
+        if (!isAdmin) throw new Error("No autorizado");
+        const { data: reprobadas } = await supabaseAdmin.from('notas_anuales').select('id_nota_anual')
+          .match({ estudiante_id: data.estudiante_id, anio_escolar_id: data.anio_origen_id, aprobado: false });
+        
+        if (reprobadas && reprobadas.length > 0) throw new Error("El estudiante tiene materias pendientes");
+
+        await supabaseAdmin.from('inscripciones').update({ estado: 'promovido' })
+          .match({ estudiante_id: data.estudiante_id, anio_escolar_id: data.anio_origen_id });
+        
+        await supabaseAdmin.from('inscripciones').insert({
+          estudiante_id: data.estudiante_id, seccion_id: data.seccion_destino_id,
+          anio_escolar_id: data.anio_destino_id, estado: 'activo'
+        });
+        return new Response(JSON.stringify({ ok: true, msg: "Estudiante promovido exitosamente" }), { headers: corsHeaders });
+
+      case 'repetir':
+        // Repitencia con convalidación de materias aprobadas (Fuente 207)
+        if (!isAdmin) throw new Error("No autorizado");
+        await supabaseAdmin.from('inscripciones').update({ estado: 'reprobado' })
+          .match({ estudiante_id: data.estudiante_id, anio_escolar_id: data.anio_origen_id });
+        
+        await supabaseAdmin.from('inscripciones').insert({
+          estudiante_id: data.estudiante_id, seccion_id: data.seccion_destino_id,
+          anio_escolar_id: data.anio_destino_id, estado: 'activo'
+        });
+
+        const { data: aprobadas } = await supabaseAdmin.from('notas_anuales').select('*')
+          .match({ estudiante_id: data.estudiante_id, anio_escolar_id: data.anio_origen_id, aprobado: true });
+
+        if (aprobadas) {
+          const notasConvalidadas = aprobadas.map(n => ({
+            estudiante_id: n.estudiante_id, materia_id: n.materia_id,
+            anio_escolar_id: data.anio_destino_id, nota_final: n.nota_final, aprobado: true
+          }));
+          await supabaseAdmin.from('notas_anuales').insert(notasConvalidadas);
+        }
+        return new Response(JSON.stringify({ ok: true, msg: "Repitencia procesada con convalidación" }), { headers: corsHeaders });
+
+      case 'retirar':
+        // Ejecución de procedimiento almacenado para retiro seguro (Fuente 209, 33)
+        if (!isAdmin) throw new Error("No autorizado");
+        const { data: res, error: rpcErr } = await supabaseAdmin.rpc('fn_retirar_estudiante', { p_id_inscripcion: data.id_inscripcion });
+        if (rpcErr) throw rpcErr;
+        return new Response(JSON.stringify(res), { headers: corsHeaders });
+
+      default:
+        throw new Error("Acción administrativa no reconocida");
+    }
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+});

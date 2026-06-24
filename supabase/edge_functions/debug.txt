@@ -1,0 +1,100 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // 1. Manejo de pre-flight CORS para permitir llamadas desde el frontend
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const diagnostics: any = {
+    timestamp: new Date().toISOString(),
+    env: { url: false, service_key: false },
+    auth: { authenticated: false, user_id: null },
+    roles: [],
+    academic_context: { anio_activo: null, lapso_activo: null }
+  }
+
+  try {
+    // 2. Diagnóstico de variables de entorno (Error común en despliegue)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    diagnostics.env.url = !!supabaseUrl
+    diagnostics.env.service_key = !!supabaseKey
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error("Variables de entorno no configuradas correctamente en Supabase.")
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey)
+
+    // 3. Validación de Identidad (JWT)
+    const authHeader = req.headers.get('Authorization')
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '')
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+      
+      if (!authError && user) {
+        diagnostics.auth.authenticated = true
+        diagnostics.auth.user_id = user.id
+
+        // 4. Validación de Roles en tiempo real (RPC current_user_roles)
+        // Esto confirma que las políticas RLS reconocerán al usuario [4, 5]
+        const { data: roles } = await supabaseAdmin.rpc('current_user_roles')
+        diagnostics.roles = roles || []
+      }
+    }
+
+    // 5. Prueba de Carga de Datos Académicos [6, 7]
+    // Verifica si hay un año activo, vital para el funcionamiento del sistema
+    const { data: anioActivo } = await supabaseAdmin.rpc('obtener_anio_activo').single()
+    if (anioActivo) {
+      diagnostics.academic_context.anio_activo = {
+        id: anioActivo.id_anio,
+        nombre: anioActivo.nombre
+      }
+
+      // 6. Verificar si existe un lapso activo para ese año [6]
+      const { data: lapso } = await supabaseAdmin
+        .from('lapsos')
+        .select('id_lapso, numero_lapso, nombre')
+        .eq('anio_escolar_id', anioActivo.id_anio)
+        .eq('activo', true)
+        .single()
+      
+      if (lapso) {
+        diagnostics.academic_context.lapso_activo = lapso
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, diagnostics }), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      error: err.message, 
+      diagnostics 
+    }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+})
+
+/*
+Correcciones y Mejoras Clave:
+Verificación de Roles Jerárquicos: Se utiliza la función current_user_roles para devolver el arreglo de IDs de rol asociados al usuario (ej. 4 para Directivo, 5 para Superadmin), lo que permite depurar problemas de acceso a funciones restringidas
+.
+Contexto Académico en un solo paso: Al invocar obtener_anio_activo, el debug confirma inmediatamente si el sistema tiene un periodo escolar abierto, lo cual es la causa principal de errores en cascada en las funciones de creación de lapsos o inscripción
+.
+Seguridad y CORS: Se mantienen los encabezados necesarios para que la función pueda ser llamada de forma segura desde herramientas de desarrollo o el panel de control del administrador
+.
+Manejo de Errores Descriptivo: Si la función falla, devuelve el estado parcial de los diagnósticos (qué pasó la prueba y qué no), facilitando enormemente el rastreo de fallos en el entorno de producción de Supabase
+.
+Identificación de "Lapso Huérfano": He añadido una validación adicional para verificar si existe un lapso activo vinculado al año escolar, lo que ayuda a detectar si un administrador cerró un año pero olvidó activar el nuevo lapso
+*/

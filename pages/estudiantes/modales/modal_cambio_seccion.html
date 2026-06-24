@@ -1,0 +1,33 @@
+<div class="modal fade" id="modalCambioSeccion" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Cambiar sección del estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="idEstudianteCambioSeccion">
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Sección actual</label>
+          <div id="seccionActualCambio"></div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-bold">Nueva sección</label>
+          <select id="nuevaSeccionCambio" class="form-select"></select>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnConfirmarCambioSeccion" class="btn btn-primary">Cambiar sección</button>
+      </div>
+
+    </div>
+  </div>
+</div>

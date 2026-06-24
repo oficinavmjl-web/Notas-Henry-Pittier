@@ -1,0 +1,168 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    const { action, data } = await req.json()
+    const authHeader = req.headers.get('Authorization')!
+    const token = authHeader.replace('Bearer ', '')
+    
+    // 1. Obtener datos del solicitante para validar jerarquía
+    const { data: { user: requester }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    if (userError || !requester) throw new Error("No autorizado")
+
+    const { data: requesterRoles } = await supabaseAdmin.rpc('current_user_roles')
+    const isSuperAdmin = requesterRoles.includes(5)
+    const isDirectivo = requesterRoles.includes(4)
+
+    if (!isSuperAdmin && !isDirectivo) throw new Error("Permisos insuficientes para gestionar usuarios")
+
+    switch (action) {
+
+/**
+ * ACCIÓN: consultar-auditoria
+ * Permite al Superadmin rastrear cambios críticos (notas, inscripciones, etc.)
+ * IMPORTANCIA: Visibilidad total sobre quién, cuándo y qué se modificó.
+ */
+case 'consultar-auditoria':
+  // 1. VALIDACIÓN DE SEGURIDAD: Solo el Rol 5 (Superadmin) puede ver logs de auditoría
+  const { data: rolesAuditoria } = await supabaseAdmin.rpc('current_user_roles');
+  const isSuper = rolesAuditoria?.includes(5);
+  
+  if (!isSuper) {
+    throw new Error("Acceso denegado: Solo el Superadmin puede consultar los registros de auditoría.");
+  }
+
+  // 2. CONSTRUCCIÓN DE CONSULTA CON FILTROS
+  // Los filtros vienen en el cuerpo de la petición (data)
+  let auditQuery = supabaseAdmin
+    .from('audit_log')
+    .select(`
+      id, tabla, operacion, registro_id, created_at, cambios,
+      perfiles:usuario (nombres, apellidos, username)
+    `)
+    .order('created_at', { ascending: false });
+
+  // Aplicar filtros dinámicos si se proporcionan
+  if (data.tabla) auditQuery = auditQuery.eq('tabla', data.tabla);
+  if (data.operacion) auditQuery = auditQuery.eq('operacion', data.operacion);
+  if (data.usuario_id) auditQuery = auditQuery.eq('usuario', data.usuario_id);
+  if (data.registro_id) auditQuery = auditQuery.eq('registro_id', data.registro_id);
+
+  const { data: logs, error: auditError } = await auditQuery.limit(data.limit || 100);
+
+  if (auditError) throw auditError;
+
+  return new Response(JSON.stringify({
+    ok: true,
+    conteo: logs.length,
+    registros: logs
+  }), { headers: corsHeaders });
+
+      case 'list_users':
+        // Listado con joins relacionales según Fuente 13 [4]
+        const { data: users, error: listError } = await supabaseAdmin
+          .from('perfiles')
+          .select('*, user_roles(id_rol, rol(nombre))')
+          .order('apellidos', { ascending: true })
+        if (listError) throw listError
+        return new Response(JSON.stringify(users), { headers: corsHeaders })
+
+      case 'create_user':
+        // Validación de jerarquía: solo Superadmin crea Directivos/Superadmins [5]
+        if ((data.id_rol === 4 || data.id_rol === 5) && !isSuperAdmin) {
+          throw new Error("Solo un Superadmin puede crear usuarios administrativos")
+        }
+        
+        // Creación en Auth con metadatos para el trigger 'handle_new_user' [5, 6]
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: data.email,
+          password: data.password,
+          email_confirm: true,
+          user_metadata: {
+            username: data.username,
+            nombres: data.nombres,
+            apellidos: data.apellidos,
+            cedula: data.cedula
+          }
+        })
+        if (createError) throw createError
+
+        // Asignación de rol inicial
+        await supabaseAdmin.from('user_roles').insert({ user_id: newUser.user.id, id_rol: data.id_rol })
+        return new Response(JSON.stringify({ ok: true, user: newUser.user }), { headers: corsHeaders })
+
+      case 'update_user':
+        // Protección: No auto-editarse y proteger Superadmins [7]
+        if (data.target_user_id === requester.id) throw new Error("Use el módulo de Mi Perfil para editarse")
+        
+        const { data: targetRoles } = await supabaseAdmin
+          .from('user_roles')
+          .select('id_rol')
+          .eq('user_id', data.target_user_id)
+        
+        if (targetRoles?.some(r => r.id_rol === 5) && !isSuperAdmin) {
+          throw new Error("No puede modificar a un Superadmin")
+        }
+
+        // Actualización en Auth y Perfiles [8]
+        const updateOps = []
+        if (data.email) updateOps.push(supabaseAdmin.auth.admin.updateUserById(data.target_user_id, { email: data.email }))
+        updateOps.push(supabaseAdmin.from('perfiles').update({
+          nombres: data.nombres,
+          apellidos: data.apellidos,
+          cedula: data.cedula,
+          activo: data.activo
+        }).eq('id', data.target_user_id))
+
+        await Promise.all(updateOps)
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+
+      case 'toggle_status':
+        // Habilitar/Deshabilitar físicamente en Auth usando ban_duration [9]
+        const isEnabling = data.status === 'enable'
+        const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(data.target_user_id, {
+          ban_duration: isEnabling ? 'none' : '876600h'
+        })
+        if (banError) throw banError
+
+        await supabaseAdmin.from('perfiles').update({ activo: isEnabling }).eq('id', data.target_user_id)
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+
+      case 'reset_password':
+        // Solo administradores reinician claves de otros [10]
+        const { error: resetError } = await supabaseAdmin.auth.admin.updateUserById(data.target_user_id, {
+          password: data.new_password
+        })
+        if (resetError) throw resetError
+        return new Response(JSON.stringify({ ok: true, msg: "Clave actualizada" }), { headers: corsHeaders })
+
+      case 'delete_user':
+        // Borrado en cascada (Fuente 9) [11]
+        if (data.target_user_id === requester.id) throw new Error("No puede eliminarse a sí mismo")
+        const { error: delError } = await supabaseAdmin.auth.admin.deleteUser(data.target_user_id)
+        if (delError) throw delError
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+
+      default:
+        throw new Error("Acción no reconocida")
+    }
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    })
+  }
+})

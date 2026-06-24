@@ -1,0 +1,177 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, data } = await req.json()
+
+    switch (action) {
+      /**
+       * 1. evaluaciones-configurar-planilla
+       * Define el plan de evaluación (evaluaciones_lapsos).
+       * Valida el límite de porcentaje (máx 25% por evaluación según esquema [4]).
+       */
+      case 'configurar-planilla':
+        const { error: configError } = await supabaseAdmin
+          .from('evaluaciones_lapsos')
+          .insert(data.evaluaciones.map((ev: any) => ({
+            ...ev,
+            docente_id: data.docente_id,
+            seccion_id: data.seccion_id,
+            materia_id: data.materia_id,
+            lapso_id: data.lapso_id
+          })))
+        if (configError) throw configError
+        return new Response(JSON.stringify({ ok: true, msg: "Plan de evaluación configurado" }), { headers: corsHeaders })
+
+      /**
+       * 2. notas-registrar-planilla
+       * Carga masiva de notas para una evaluación específica.
+       * El trigger 'trg_actualizar_promedio' [1] recalculará promedios automáticamente.
+       */
+      case 'registrar-planilla':
+        const { error: bulkError } = await supabaseAdmin
+          .from('evaluaciones_notas')
+          .upsert(data.notas.map((n: any) => ({
+            evaluacion_id: data.evaluacion_id,
+            estudiante_id: n.estudiante_id,
+            nota: n.nota < 1 ? 1 : (n.nota > 20 ? 20 : n.nota), // Regla del 01 [5]
+            observacion: n.observacion
+          })))
+        if (bulkError) throw bulkError
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+
+      /**
+       * 3. notas-corregir-individual
+       * Actualización de una nota específica por ID.
+       */
+      case 'corregir-individual':
+        const { error: updateError } = await supabaseAdmin
+          .from('evaluaciones_notas')
+          .update({ 
+            nota: data.nota, 
+            observacion: data.observacion 
+          })
+          .eq('id_nota', data.id_nota)
+        if (updateError) throw updateError
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders })
+
+      /**
+       * 4. notas-obtener-planilla-llenada
+       * Obtiene la lista de estudiantes inscritos con sus notas actuales.
+       */
+      case 'obtener-planilla-llenada':
+        const { data: planilla, error: fetchError } = await supabaseAdmin
+          .from('inscripciones')
+          .select(`
+            estudiante_id,
+            estudiantes (cedula, nombres, apellidos),
+            evaluaciones_notas!left (id_nota, nota, observacion)
+          `)
+          .eq('seccion_id', data.seccion_id)
+          .eq('evaluaciones_notas.evaluacion_id', data.evaluacion_id)
+        if (fetchError) throw fetchError
+        return new Response(JSON.stringify(planilla), { headers: corsHeaders })
+
+      /**
+       * 5. notas-finalizar-lapso
+       * Ejecuta la función RPC cerrar_lapso [6, 7].
+       */
+      case 'finalizar-lapso':
+        const { data: resCierre, error: closeError } = await supabaseAdmin
+          .rpc('cerrar_lapso', { p_id_lapso: data.id_lapso })
+        if (closeError) throw closeError
+        return new Response(JSON.stringify(resCierre), { headers: corsHeaders })
+
+      default:
+        throw new Error("Acción no reconocida");
+/**
+ * ACCIÓN: verificar-completitud-notas
+ * Cruza evaluaciones planificadas vs. notas cargadas por estudiante.
+ * Beneficio: Bloqueo preventivo antes de 'finalizar-lapso'.
+ */
+case 'verificar-completitud-notas':
+  const { id_seccion, id_materia, id_lapso } = data;
+
+  // 1. Obtener todas las evaluaciones configuradas para esta materia/sección/lapso
+  const { data: planEvaluacion, error: errPlan } = await supabaseAdmin
+    .from('evaluaciones_lapsos')
+    .select('id_evaluacion, nombre, porcentaje')
+    .match({ seccion_id: id_seccion, materia_id: id_materia, lapso_id: id_lapso });
+
+  if (errPlan) throw errPlan;
+  if (!planEvaluacion || planEvaluacion.length === 0) {
+    throw new Error("No se ha configurado un plan de evaluación para este periodo.");
+  }
+
+  // 2. Obtener la lista de estudiantes activos en la sección (Fuente 1, Tabla inscripciones)
+  const { data: estudiantes, error: errEst } = await supabaseAdmin
+    .from('inscripciones')
+    .select('estudiante_id, estudiantes(nombres, apellidos, cedula)')
+    .match({ seccion_id: id_seccion, estado: 'activo' });
+
+  if (errEst) throw errEst;
+
+  // 3. Obtener todas las notas ya registradas para estas evaluaciones
+  const idsEvaluaciones = planEvaluacion.map(e => e.id_evaluacion);
+  const { data: notasRegistradas, error: errNotas } = await supabaseAdmin
+    .from('evaluaciones_notas')
+    .select('evaluacion_id, estudiante_id, nota')
+    .in('evaluacion_id', idsEvaluaciones);
+
+  if (errNotas) throw errNotas;
+
+  // 4. Lógica de cruce para detectar faltantes
+  const faltantes: any[] = [];
+  let totalEsperado = planEvaluacion.length * estudiantes.length;
+  let totalCargado = notasRegistradas.length;
+
+  planEvaluacion.forEach(evaluacion => {
+    estudiantes.forEach(est => {
+      const existeNota = notasRegistradas.find(n => 
+        n.evaluacion_id === evaluacion.id_evaluacion && 
+        n.estudiante_id === est.estudiante_id
+      );
+
+      if (!existeNota) {
+        faltantes.push({
+          estudiante: `${est.estudiantes.apellidos}, ${est.estudiantes.nombres}`,
+          evaluacion: evaluacion.nombre,
+          id_estudiante: est.estudiante_id
+        });
+      }
+    });
+  });
+
+  return new Response(JSON.stringify({
+    ok: faltantes.length === 0,
+    resumen: {
+      total_estudiantes: estudiantes.length,
+      total_evaluaciones: planEvaluacion.length,
+      completitud: `${totalCargado}/${totalEsperado}`,
+      faltantes_conteo: faltantes.length
+    },
+    detalles_faltantes: faltantes
+  }), { headers: corsHeaders });
+
+    }
+
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    })
+  }
+})

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Estudios - NOTAS Henry Pittier</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../../css/styles.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #fd7e14;
+      --secondary-color: #6c757d;
+    }
+
+    body {
+      background-color: #f5f7fa;
+    }
+
+    .navbar-custom {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #dc6311 100%);
+    }
+
+    .sidebar {
+      background-color: #fff;
+      border-right: 1px solid #e9ecef;
+      position: sticky;
+      top: 56px;
+      min-height: calc(100vh - 56px);
+    }
+
+    .nav-item a {
+      border-left: 3px solid transparent;
+      padding: 12px 16px;
+    }
+
+    .nav-item a:hover,
+    .nav-item a.active {
+      background-color: #f8f9fa;
+      border-left-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .main-content {
+      padding: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="javascript:location.reload()">
+        <i class="bi bi-file-earmark-text"></i> Control de Estudios | NOTAS
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.irAPerfil()">
+              <i class="bi bi-person-circle"></i> Mi Perfil
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.logout()">
+              <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid" style="margin-top: 56px;">
+    <div class="row g-0">
+      <!-- SIDEBAR -->
+      <div class="col-md-3 d-none d-md-block">
+        <div class="sidebar">
+          <div class="p-3 border-bottom">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #dc6311); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;" id="userInitials">C</div>
+              <div>
+                <div style="font-weight: 600; font-size: 0.9rem;" id="userName">Control Estudios</div>
+                <small class="text-muted" id="userEmail">control@ejemplo.com</small>
+              </div>
+            </div>
+          </div>
+          <nav class="nav flex-column">
+            <a class="nav-item nav-link active" href="javascript:cargarSeccion('inicio')">
+              <i class="bi bi-speedometer2"></i> Panel Principal
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('estudiantes')">
+              <i class="bi bi-person-badge"></i> Gestión Estudiantes
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('secciones')">
+              <i class="bi bi-building"></i> Gestión Secciones
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('inscripciones')">
+              <i class="bi bi-clipboard-check"></i> Inscripciones
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('reportes')">
+              <i class="bi bi-file-earmark-chart"></i> Reportes
+            </a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="col-md-9">
+        <div class="main-content">
+          <div id="contentArea">
+            <!-- Contenido dinámico -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../js/supabase.js"></script>
+  <script src="../../js/services/session.js"></script>
+  <script src="../../js/services/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!sessionAPI.estaAutenticado()) {
+        window.location.href = '/index.html';
+        return;
+      }
+
+      const rol = sessionAPI.obtenerRolPrincipal();
+      if (rol !== 'Control_estudios') {
+        window.location.href = '/index.html';
+        return;
+      }
+
+      const usuario = sessionAPI.obtenerUsuario();
+      document.getElementById('userName').textContent = `${usuario.nombre} ${usuario.apellido}`;
+      document.getElementById('userEmail').textContent = usuario.email;
+
+      cargarSeccion('inicio');
+    });
+
+    async function cargarSeccion(seccion) {
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      const activeLink = document.querySelector(`.nav-item[href*="${seccion}"]`);
+      if (activeLink) activeLink.classList.add('active');
+
+      switch(seccion) {
+        case 'inicio':
+          await cargarInicio();
+          break;
+        case 'estudiantes':
+          await cargarEstudiantes();
+          break;
+        case 'secciones':
+          await cargarSecciones();
+          break;
+        case 'inscripciones':
+          await cargarInscripciones();
+          break;
+        case 'reportes':
+          await cargarReportes();
+          break;
+      }
+    }
+
+    async function cargarInicio() {
+      const contentArea = document.getElementById('contentArea');
+      try {
+        const periodoActivo = await API.periodos.obtenerActivo();
+        const estudiantes = await API.estudiantes.listar();
+        const secciones = await API.secciones.listar();
+
+        contentArea.innerHTML = `
+          <div class="page-header">
+            <h2><i class="bi bi-speedometer2"></i> Panel de Control</h2>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${estudiantes?.length || 0}</div>
+                <div class="stat-label">Estudiantes Registrados</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${secciones?.length || 0}</div>
+                <div class="stat-label">Secciones Activas</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${periodoActivo ? 'Activo' : 'Cerrado'}</div>
+                <div class="stat-label">Período Académico</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color), #dc6311); color: white; border: none;">
+              <h5 class="mb-0"><i class="bi bi-info-circle"></i> Estado del Sistema</h5>
+            </div>
+            <div class="card-body">
+              <p><strong>Período Actual:</strong> ${periodoActivo?.nombre || 'No hay período activo'}</p>
+              <p><strong>Estudiantes activos:</strong> ${estudiantes?.length || 0}</p>
+              <p><strong>Secciones configuradas:</strong> ${secciones?.length || 0}</p>
+            </div>
+          </div>
+        `;
+
+      } catch(error) {
+        console.error('Error:', error);
+        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function cargarEstudiantes() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-person-badge"></i> Gestión de Estudiantes</h2>
+          <button class="btn btn-primary">+ Agregar Estudiante</button>
+        </div>
+
+        <div class="mb-3">
+          <input type="text" class="form-control" placeholder="Buscar estudiante...">
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead style="background-color: #f8f9fa;">
+              <tr>
+                <th>Nombre</th>
+                <th>Cédula</th>
+                <th>Sección</th>
+                <th>Email</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td colspan="6" class="text-center text-muted">Cargando estudiantes...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      try {
+        const estudiantes = await API.estudiantes.listar();
+        const tbody = contentArea.querySelector('tbody');
+
+        if (estudiantes && estudiantes.length > 0) {
+          tbody.innerHTML = estudiantes.map(e => `
+            <tr>
+              <td><strong>${e.nombre} ${e.apellido}</strong></td>
+              <td>${e.cedula}</td>
+              <td>${e.seccion_nombre || '-'}</td>
+              <td>${e.email}</td>
+              <td><span class="badge bg-success">Activo</span></td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary">Editar</button>
+              </td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin estudiantes</td></tr>';
+        }
+      } catch(error) {
+        console.error('Error:', error);
+      }
+    }
+
+    async function cargarSecciones() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-building"></i> Gestión de Secciones</h2>
+          <button class="btn btn-primary">+ Crear Sección</button>
+        </div>
+
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i> Módulo para crear y gestionar secciones académicas
+        </div>
+      `;
+    }
+
+    async function cargarInscripciones() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-clipboard-check"></i> Gestión de Inscripciones</h2>
+        </div>
+
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i> Módulo para inscribir estudiantes en secciones
+        </div>
+      `;
+    }
+
+    async function cargarReportes() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-file-earmark-chart"></i> Reportes</h2>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h5><i class="bi bi-file-earmark"></i> Reporte de Estudiantes</h5>
+                <p class="text-muted">Descarga listado de todos los estudiantes</p>
+                <button class="btn btn-sm btn-outline-primary">Generar</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h5><i class="bi bi-file-earmark"></i> Reporte de Inscripciones</h5>
+                <p class="text-muted">Descarga reporte de inscripciones por período</p>
+                <button class="btn btn-sm btn-outline-primary">Generar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

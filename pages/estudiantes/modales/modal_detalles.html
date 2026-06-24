@@ -1,0 +1,144 @@
+<div class="modal fade" id="modalDetallesEstudiante" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Detalles del estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ============================
+             DATOS PERSONALES
+        ============================= -->
+        <h5 class="mb-3">Datos personales</h5>
+        <div class="row g-3">
+
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Cédula</label>
+            <div id="detCedula"></div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Nombre completo</label>
+            <div id="detNombre"></div>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label fw-bold">Edad</label>
+            <div id="detEdad"></div>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label fw-bold">Sexo</label>
+            <div id="detSexo"></div>
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label fw-bold">Estado</label>
+            <div id="detEstado"></div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Dirección</label>
+            <div id="detDireccion"></div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Teléfono</label>
+            <div id="detTelefono"></div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Representante</label>
+            <div id="detRepresentante"></div>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Teléfono representante</label>
+            <div id="detTelefonoRepresentante"></div>
+          </div>
+
+        </div>
+
+        <!-- ============================
+             HISTORIAL DE INSCRIPCIONES
+        ============================= -->
+        <hr class="my-4">
+
+        <h5 class="mb-3">Historial de inscripciones</h5>
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Año escolar</th>
+                <th>Grado</th>
+                <th>Sección</th>
+                <th>Estado</th>
+                <th>Fecha inscripción</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaHistorialInscripciones"></tbody>
+          </table>
+        </div>
+
+        <!-- ============================
+             HISTORIAL ACADÉMICO COMPLETO
+        ============================= -->
+        <hr class="my-4">
+
+        <h5 class="mb-3">Historial académico completo</h5>
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Año escolar</th>
+                <th>Grado</th>
+                <th>Sección</th>
+                <th>Estado académico</th>
+                <th>Fecha inscripción</th>
+                <th>Fecha cambio estado</th>
+                <th>Promedio final</th>
+              </tr>
+            </thead>
+            <tbody id="tablaHistorialAcademico"></tbody>
+          </table>
+        </div>
+
+        <!-- ============================
+             PROMEDIOS POR LAPSO
+        ============================= -->
+        <hr class="my-4">
+
+        <h5 class="mb-3">Promedios por lapso</h5>
+
+        <div id="promediosPorLapso"></div>
+
+        <!-- ============================
+             HISTORIAL DE EVALUACIONES POR LAPSO
+        ============================= -->
+        <hr class="my-4">
+
+        <h5 class="mb-3">Historial de evaluaciones por lapso</h5>
+
+        <div id="contenedorHistorialEvaluaciones"></div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <!-- BOTÓN DESCARGAR REPORTE ACADÉMICO -->
+        <button id="btnDescargarReporte" class="btn btn-primary">
+          Descargar reporte académico
+        </button>
+
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+
+    </div>
+  </div>
+</div>

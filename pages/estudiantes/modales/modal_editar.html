@@ -1,0 +1,75 @@
+<div class="modal fade" id="modalEditarEstudiante" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Editar estudiante</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="idEstudianteEditar">
+
+        <div class="row g-3">
+
+          <div class="col-md-4">
+            <label class="form-label">Cédula</label>
+            <input id="cedulaEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Nombres</label>
+            <input id="nombresEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Apellidos</label>
+            <input id="apellidosEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Fecha de nacimiento</label>
+            <input id="fechaNacimientoEditar" type="date" class="form-control">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Sexo</label>
+            <select id="sexoEditar" class="form-select">
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Teléfono</label>
+            <input id="telefonoEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Dirección</label>
+            <input id="direccionEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Representante</label>
+            <input id="representanteEditar" type="text" class="form-control">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Teléfono del representante</label>
+            <input id="telefonoRepresentanteEditar" type="text" class="form-control">
+          </div>
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnActualizarEstudiante" class="btn btn-primary">Actualizar</button>
+      </div>
+
+    </div>
+  </div>
+</div>

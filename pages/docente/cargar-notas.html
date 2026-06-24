@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cargar Notas - Panel Docente</title>
+  <link href="../../css/bootstrap.min.css" rel="stylesheet">
+  <link href="../../css/styles.css" rel="stylesheet">
+  <style>
+    .container-principal {
+      max-width: 1400px;
+      margin: 20px auto;
+    }
+
+    .card-seccion {
+      margin-bottom: 30px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .tabla-estudiantes {
+      font-size: 0.9rem;
+    }
+
+    .tabla-estudiantes thead {
+      background-color: #f8f9fa;
+      font-weight: 600;
+    }
+
+    .input-nota {
+      width: 60px;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .input-nota.error {
+      border-color: #dc3545;
+      background-color: #ffe5e5;
+    }
+
+    .input-nota.success {
+      border-color: #28a745;
+      background-color: #e5ffe5;
+    }
+
+    .badge-estado {
+      font-size: 0.8rem;
+      padding: 4px 8px;
+    }
+
+    .validaciones-box {
+      background-color: #f0f8ff;
+      border-left: 4px solid #0056b3;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .error-list {
+      color: #dc3545;
+      font-size: 0.9rem;
+      margin: 5px 0;
+    }
+
+    .success-message {
+      color: #28a745;
+      font-weight: 600;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 20px;
+    }
+
+    .btn-cargar-evaluacion {
+      margin-bottom: 10px;
+    }
+
+    .evaluacion-item {
+      background-color: #fff;
+      border: 1px solid #ddd;
+      padding: 12px;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .evaluacion-item:hover {
+      background-color: #f9f9f9;
+      border-color: #0056b3;
+    }
+
+    .evaluacion-item.activa {
+      background-color: #e3f2fd;
+      border-color: #0056b3;
+      font-weight: 600;
+    }
+
+    .porcentaje-bar {
+      height: 20px;
+      background-color: #e9ecef;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+
+    .porcentaje-fill {
+      height: 100%;
+      background-color: #0056b3;
+      transition: width 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.7rem;
+    }
+  </style>
+</head>
+<body class="bg-light">
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark bg-dark sticky-top">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1">📚 Panel Docente - Carga de Notas</span>
+      <div class="d-flex align-items-center">
+        <span id="usuario-nombre" class="text-white me-3 small"></span>
+        <span id="rol-badge" class="badge bg-warning text-dark me-2">Docente</span>
+        <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Contenedor de alertas -->
+  <div id="alerts-container" class="container-fluid" style="margin-top: 10px;"></div>
+
+  <!-- Contenido principal -->
+  <div class="container-principal">
+    <div class="row">
+      <!-- Sidebar -->
+      <div class="col-lg-3">
+        <div class="card sidebar">
+          <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Mis Secciones</h5>
+          </div>
+          <div class="card-body p-0">
+            <div id="secciones-list" class="list-group list-group-flush">
+              <div class="list-group-item text-muted text-center py-3">
+                <small>Cargando secciones...</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Info de Ventana de Carga -->
+        <div class="card mt-3">
+          <div class="card-header bg-info text-white">
+            <h6 class="mb-0">📅 Ventana de Carga Activa</h6>
+          </div>
+          <div class="card-body">
+            <div id="ventana-info">
+              <p class="small text-muted">Selecciona una sección para ver detalles.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Restricciones académicas -->
+        <div class="card mt-3">
+          <div class="card-header bg-warning text-dark">
+            <h6 class="mb-0">⚠️ Restricciones Ministeriales</h6>
+          </div>
+          <div class="card-body small">
+            <ul class="mb-0 ps-3">
+              <li>Máximo <strong>7 evaluaciones</strong> por materia</li>
+              <li>Máximo <strong>25%</strong> por evaluación</li>
+              <li>Total de % debe ser <strong>100%</strong></li>
+              <li>Escala de notas: <strong>1-20</strong> puntos</li>
+              <li>Mínimo 1 punto = Inasistente</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contenido principal -->
+      <div class="col-lg-9">
+        <!-- Selección de Materia -->
+        <div class="card mb-4">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Seleccionar Materia y Lapso</h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Materia:</label>
+                <select id="select-materia" class="form-select" onchange="cargarEvaluacionesMateria()">
+                  <option value="">-- Selecciona una materia --</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Lapso:</label>
+                <select id="select-lapso" class="form-select" onchange="cargarEvaluacionesMateria()">
+                  <option value="">-- Selecciona un lapso --</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Estado Ventana:</label>
+                <div class="alert alert-info mb-0 p-2 small" id="estado-ventana">
+                  Cargando...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Crear Nueva Evaluación -->
+        <div class="card mb-4">
+          <div class="card-header bg-success text-white">
+            <h5 class="mb-0">➕ Crear Nueva Evaluación</h5>
+          </div>
+          <div class="card-body">
+            <form id="form-nueva-evaluacion" onsubmit="crearEvaluacion(event)">
+              <div class="row">
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Nombre de la Evaluación:</label>
+                  <input type="text" class="form-control" id="input-nombre-eval" required 
+                    placeholder="Ej: Prueba 1, Trabajo final, etc.">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-bold">Fecha:</label>
+                  <input type="date" class="form-control" id="input-fecha-eval" required>
+                </div>
+              </div>
+
+              <div class="row mt-3">
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">Tipo de Evaluación:</label>
+                  <select class="form-select" id="select-tipo-eval" required>
+                    <option value="">-- Selecciona --</option>
+                    <option value="1">Prueba Escrita</option>
+                    <option value="2">Prueba Oral</option>
+                    <option value="3">Trabajo Práctico</option>
+                    <option value="4">Proyecto</option>
+                    <option value="5">Participación</option>
+                    <option value="6">Exposición</option>
+                    <option value="7">Evaluación Continua</option>
+                    <option value="8">Examen</option>
+                    <option value="9">Trabajos Extraclase</option>
+                  </select>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label fw-bold">Instrumento de Evaluación:</label>
+                  <select class="form-select" id="select-instrumento-eval" required>
+                    <option value="">-- Selecciona --</option>
+                    <option value="1">Cuestionario</option>
+                    <option value="2">Rúbrica</option>
+                    <option value="3">Escala de Estimación</option>
+                    <option value="4">Lista de Cotejo</option>
+                    <option value="5">Observación Directa</option>
+                    <option value="6">Portafolio</option>
+                    <option value="7">Ensayo</option>
+                    <option value="8">Proyecto</option>
+                    <option value="9">Participación en Clase</option>
+                    <option value="10">Prueba Objetiva</option>
+                  </select>
+                </div>
+
+                <div class="col-md-2">
+                  <label class="form-label fw-bold">Porcentaje (%):</label>
+                  <input type="number" class="form-control" id="input-porcentaje" min="1" max="25" required 
+                    placeholder="1-25" value="20">
+                </div>
+
+                <div class="col-md-2">
+                  <label class="form-label fw-bold">Nota Máxima:</label>
+                  <input type="number" class="form-control" id="input-valor-maximo" min="1" max="20" required 
+                    placeholder="1-20" value="20" step="0.1">
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label fw-bold">Descripción (opcional):</label>
+                <textarea class="form-control" id="input-descripcion-eval" rows="2" 
+                  placeholder="Detalles de la evaluación..."></textarea>
+              </div>
+
+              <!-- Validaciones en tiempo real -->
+              <div id="validaciones-eval" class="validaciones-box" style="display: none;">
+                <strong>⚠️ Validaciones:</strong>
+                <div id="validaciones-list"></div>
+              </div>
+
+              <button type="submit" class="btn btn-success mt-3 w-100" id="btn-crear-eval">
+                ➕ Crear Evaluación
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Evaluaciones Existentes -->
+        <div class="card mb-4">
+          <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">📋 Evaluaciones Cargadas</h5>
+          </div>
+          <div class="card-body">
+            <div id="evaluaciones-existentes">
+              <p class="text-muted">Selecciona materia y lapso para ver evaluaciones.</p>
+            </div>
+
+            <!-- Resumen de Porcentajes -->
+            <div class="mt-4" id="resumen-porcentajes" style="display: none;">
+              <h6>Resumen de Porcentajes:</h6>
+              <div class="porcentaje-bar">
+                <div class="porcentaje-fill" id="porcentaje-visual" style="width: 0%">
+                  <span id="porcentaje-texto">0%</span>
+                </div>
+              </div>
+              <small class="text-muted" id="porcentaje-estado">Total: 0%</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de Notas -->
+        <div class="card card-seccion" id="card-estudiantes" style="display: none;">
+          <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">📊 Cargar Notas - Estudiantes</h5>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-hover tabla-estudiantes" id="tabla-estudiantes">
+                <thead>
+                  <tr>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Asistencia</th>
+                    <th>Nota (1-20)</th>
+                    <th>Observación</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-estudiantes"></tbody>
+              </table>
+            </div>
+
+            <div class="mt-3">
+              <button id="btnGuardarNotas" class="btn btn-primary" onclick="guardarNotas()">
+                💾 Guardar Notas
+              </button>
+              <button class="btn btn-secondary" onclick="limpiarFormulario()">
+                🔄 Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../../js/bootstrap.min.js"></script>
+  <script src="../../js/supabase.js"></script>
+  <script src="../../js/services/api.js"></script>
+  <script src="../../js/utils-mejorado.js"></script>
+  <script src="cargar-notas.js"></script>
+</body>
+</html>

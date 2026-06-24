@@ -1,0 +1,13 @@
+{
+  "name": "cargar-notas-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.37.0"
+  }
+}

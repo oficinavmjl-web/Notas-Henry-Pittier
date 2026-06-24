@@ -1,0 +1,348 @@
+<!-- /public/pages/secciones.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Secciones</title>
+  <link rel="stylesheet" href="../css/bootstrap.min.css">
+  <link rel="stylesheet" href="../css/styles.css">
+</head>
+
+<body>
+
+<div class="container mt-4">
+
+  <h3 class="mb-4">Gestión de Secciones</h3>
+
+  <!-- Búsqueda instantánea -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">Buscar sección</label>
+      <input id="buscarSeccion" class="form-control" placeholder="Nombre, grado o letra...">
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">Año escolar</label>
+      <select id="filtroAnio" class="form-select"></select>
+    </div>
+
+    <div class="col-md-4 d-flex align-items-end">
+      <button class="btn btn-primary w-100" onclick="cargarSecciones()">
+        Buscar secciones
+      </button>
+    </div>
+
+    <div class="col-md-4 d-flex align-items-end">
+      <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#modalCrear">
+        Crear sección
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <table class="table table-striped">
+    <thead>
+  <tr>
+    <th onclick="ordenarSecciones('nombre')" style="cursor:pointer">
+      Nombre <span id="icono-nombre"></span>
+    </th>
+    <th onclick="ordenarSecciones('grado')" style="cursor:pointer">
+      Grado <span id="icono-grado"></span>
+    </th>
+    <th onclick="ordenarSecciones('letra')" style="cursor:pointer">
+      Letra <span id="icono-letra"></span>
+    </th>
+    <th onclick="ordenarSecciones('activo')" style="cursor:pointer">
+      Estado <span id="icono-activo"></span>
+    </th>
+    <th>Acciones</th>
+  </tr>
+</thead>
+
+
+    <tbody id="tablaSecciones"></tbody>
+  </table>
+
+  <!--controles de paginacion-->
+  <div class="d-flex justify-content-between align-items-center mt-3">
+
+  <div>
+    Mostrar:
+    <select id="tamanoPagina" class="form-select d-inline-block w-auto"
+            onchange="cambiarTamanoPagina()">
+      <option value="10">10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
+    </select>
+    filas
+  </div>
+
+  <div id="paginacionControles"></div>
+
+</div>
+
+</div>
+
+
+<!-- Modales -->
+<div id="modalesSecciones">
+  <!-- MODAL CREAR SECCIÓN -->
+<div class="modal fade" id="modalCrear" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Crear sección</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <label class="form-label">Nombre</label>
+        <input id="crearNombre" class="form-control">
+
+        <label class="form-label mt-2">Grado</label>
+        <input id="crearGrado" type="number" class="form-control">
+
+        <label class="form-label mt-2">Letra</label>
+        <input id="crearLetra" class="form-control">
+
+        <label class="form-label mt-2">Año escolar</label>
+        <select id="crearAnio" class="form-select"></select>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="crearSeccion(event)">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR SECCIÓN -->
+<div class="modal fade" id="modalEditar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Editar sección</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="editarIdSeccion">
+
+        <label class="form-label">Nombre</label>
+        <input id="editarNombre" class="form-control">
+
+        <label class="form-label mt-2">Grado</label>
+        <input id="editarGrado" type="number" class="form-control">
+
+        <label class="form-label mt-2">Letra</label>
+        <input id="editarLetra" class="form-control">
+
+        <label class="form-label mt-2">Año escolar</label>
+        <select id="editarAnio" class="form-select"></select>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEdicionSeccion(event)">Guardar cambios</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CLONAR SECCIÓN -->
+<div class="modal fade" id="modalClonar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Clonar sección</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="clonarIdSeccion">
+
+        <p class="small text-muted" id="clonarInfoOrigen"></p>
+
+        <label class="form-label">Nombre nuevo</label>
+        <input id="clonarNombre" class="form-control">
+
+        <label class="form-label mt-2">Letra nueva</label>
+        <input id="clonarLetra" class="form-control">
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="ejecutarClonado(event)">Clonar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MATERIAS DE LA SECCIÓN -->
+<div class="modal fade" id="modalMaterias" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+  <h5 class="modal-title">Materias de la sección</h5>
+
+  <button class="btn btn-success btn-sm ms-3"
+          onclick="abrirAgregarMateria(window._materiasSeccionSeccionId)">
+    + Agregar materia
+  </button>
+
+  <button class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+
+      <div class="modal-body">
+
+        <p class="small text-muted" id="materiasInfoSeccion"></p>
+
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Materia</th>
+              <th>Docente</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaMateriasSeccion"></tbody>
+        </table>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR DOCENTE -->
+<div class="modal fade" id="modalAsignarDocente" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Asignar docente</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="asignarIdSeccion">
+        <input type="hidden" id="asignarIdMateria">
+
+        <p class="small text-muted" id="asignarInfoMateria"></p>
+
+        <label class="form-label">Docente</label>
+        <select id="asignarDocenteSelect" class="form-select"></select>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarAsignacionDocente(event)">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR MATERIA -->
+<div class="modal fade" id="modalAgregarMateria" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar materia a la sección</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <input type="hidden" id="agregarIdSeccion">
+
+        <p class="small text-muted" id="agregarInfoSeccion"></p>
+
+        <label class="form-label">Materia</label>
+        <select id="agregarMateriaSelect" class="form-select"></select>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarAgregarMateria(event)">Agregar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMACIÓN UNIVERSAL -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar acción</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body" id="confirmarMensaje">
+        ¿Seguro que deseas continuar?
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-danger" id="confirmarAceptar">Aceptar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="../js/bootstrap.min.js"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/utils.js"></script>
+<script src="../js/secciones/helpers.js"></script>
+<script src="../js/secciones/validaciones.js"></script>
+
+<script src="../js/secciones/cargar.js"></script>
+<script src="../js/secciones/crear.js"></script>
+<script src="../js/secciones/editar.js"></script>
+<script src="../js/secciones/clonar.js"></script>
+
+<script src="../js/secciones/materias.js"></script>
+<script src="../js/secciones/asignar_docente.js"></script>
+<script src="../js/secciones/agregar_materia.js"></script>
+
+<script src="../js/secciones/busqueda.js"></script>
+<script src="../js/secciones/ordenamiento.js"></script>
+<script src="../js/secciones/paginacion.js"></script>
+
+<script src="../js/modulo_secciones.js"></script>
+
+
+</body>
+</html>

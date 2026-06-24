@@ -1,0 +1,160 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+/**
+ * Helper: formatNota
+ * Aplica la "regla del 01" y el formato institucional de dos dígitos.
+ * Transforma visualmente las notas de alumnos retirados a 'RET' [1-3].
+ */
+const formatNota = (nota: number | null, estado: string | null) => {
+  if (estado === 'retirado') return 'RET';
+  if (nota === null || nota === undefined) return '00';
+  // Redondeo institucional para reportes finales
+  const valor = Math.round(nota);
+  return valor.toString().padStart(2, '0');
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, data } = await req.json()
+
+    // SEGURIDAD: Solo roles administrativos (Control de Estudios: 2, Directivo: 4, Superadmin: 5)
+    // pueden acceder a la generación de reportes masivos [4-6].
+    const { data: roles } = await supabaseAdmin.rpc('current_user_roles')
+    const hasAccess = roles?.some(r => [7-9].includes(r))
+    if (!hasAccess) throw new Error("Acceso denegado: Se requieren permisos administrativos.")
+
+    switch (action) {
+      /**
+       * ACCIÓN: generar-datos-sabana
+       * Reconstruye la estructura de las planillas PDF de 1° a 3° año [1, 7, 10, 11].
+       */
+      case 'generar-datos-sabana':
+        const { data: sabana, error: sErr } = await supabaseAdmin
+          .from('inscripciones')
+          .select(`
+            id_inscripcion, estado,
+            estudiantes (cedula, nombres, apellidos),
+            secciones (nombre, grado, letra),
+            evaluaciones_notas (
+              nota, 
+              evaluaciones_lapsos (id_evaluacion, lapso_id, materia_id, materias(nombre))
+            )
+          `)
+          .eq('seccion_id', data.seccion_id)
+          .order('apellidos', { foreignTable: 'estudiantes' })
+
+        if (sErr) throw sErr
+
+        const reporteSabana = sabana.map(row => ({
+          estudiante: `${row.estudiantes.apellidos}, ${row.estudiantes.nombres}`,
+          cedula: row.estudiantes.cedula,
+          estado: row.estado,
+          materias: row.evaluaciones_notas.reduce((acc: any, curr: any) => {
+            const mNombre = curr.evaluaciones_lapsos.materias.nombre;
+            if (!acc[mNombre]) acc[mNombre] = { lapso1: '00', lapso2: '00', lapso3: '00' };
+            
+            const lapsoKey = `lapso${curr.evaluaciones_lapsos.lapso_id}`;
+            acc[mNombre][lapsoKey] = formatNota(curr.nota, row.estado);
+            return acc;
+          }, {})
+        }))
+
+        return new Response(JSON.stringify(reporteSabana), { headers: corsHeaders })
+
+      /**
+       * ACCIÓN: generar-boletin-estudiante
+       * Resumen de actuación por momento para entrega a representantes [1, 11, 12].
+       */
+      case 'generar-boletin-estudiante':
+        const { data: infoBoletin, error: bErr } = await supabaseAdmin
+          .from('inscripciones')
+          .select(`
+            estado, promedio_final,
+            estudiantes (*),
+            secciones (nombre, grado, letra),
+            anios_escolares (nombre)
+          `)
+          .match({ estudiante_id: data.id_estudiante, anio_escolar_id: data.anio_escolar_id })
+          .single()
+
+        if (bErr) throw bErr
+
+        const { data: notasLapso, error: nlErr } = await supabaseAdmin
+          .from('notas_lapso')
+          .select('nota_final, lapso_id, materias (nombre)')
+          .eq('estudiante_id', data.id_estudiante)
+
+        if (nlErr) throw nlErr
+
+        const boletin = {
+          estudiante: `${infoBoletin.estudiantes.nombres} ${infoBoletin.estudiantes.apellidos}`,
+          cedula: infoBoletin.estudiantes.cedula,
+          curso: `${infoBoletin.secciones.grado}° ${infoBoletin.secciones.letra}`,
+          periodo: infoBoletin.anios_escolares.nombre,
+          calificaciones: notasLapso.reduce((acc: any, curr: any) => {
+            const m = curr.materias.nombre;
+            if (!acc[m]) acc[m] = { l1: '-', l2: '-', l3: '-' };
+            acc[m][`l${curr.lapso_id}`] = formatNota(curr.nota_final, infoBoletin.estado);
+            return acc;
+          }, {}),
+          promedio_general: formatNota(infoBoletin.promedio_final, infoBoletin.estado)
+        }
+
+        return new Response(JSON.stringify(boletin), { headers: corsHeaders })
+
+      /**
+       * ACCIÓN: generar-acta-final
+       * Reporte de fin de año basado en notas_anuales y el trigger_nota_anual [13, 14].
+       */
+      case 'generar-acta-final':
+        const { data: actaRaw, error: aErr } = await supabaseAdmin
+          .from('inscripciones')
+          .select(`
+            estado,
+            estudiantes (cedula, nombres, apellidos),
+            notas_anuales (nota_final, aprobado, materias (nombre))
+          `)
+          .match({ seccion_id: data.id_seccion, anio_escolar_id: data.id_anio })
+          .order('apellidos', { foreignTable: 'estudiantes' })
+
+        if (aErr) throw aErr
+
+        const actaFinal = actaRaw.map(reg => ({
+          estudiante: `${reg.estudiantes.apellidos}, ${reg.estudiantes.nombres}`,
+          cedula: reg.estudiantes.cedula,
+          materias: reg.notas_anuales.map(na => ({
+            nombre: na.materias.nombre,
+            definitiva: formatNota(na.nota_final, reg.estado),
+            resultado: reg.estado === 'retirado' ? 'RET' : (na.aprobado ? 'APROBADO' : 'REPROBADO')
+          }))
+        }))
+
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          anio_escolar_id: data.id_anio,
+          registros: actaFinal 
+        }), { headers: corsHeaders })
+
+      default:
+        throw new Error("Acción de reporte no reconocida.")
+    }
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 400, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    })
+  }
+})

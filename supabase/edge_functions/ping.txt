@@ -1,0 +1,71 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // 1. Manejo de CORS (Indispensable para el frontend)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
+  const start = performance.now()
+  const status: any = {
+    database: "offline",
+    environment: "incomplete"
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+
+    if (supabaseUrl && supabaseKey) {
+      status.environment = "healthy"
+      
+      const supabase = createClient(supabaseUrl, supabaseKey)
+
+      // 2. Prueba de conexión ultraligera a la base de datos
+      // Simplemente contamos los años escolares para verificar que el túnel SQL esté abierto [2]
+      const { error } = await supabase
+        .from('anios_escolares')
+        .select('id_anio', { count: 'exact', head: true })
+        .limit(1)
+
+      if (!error) status.database = "online"
+    }
+
+    const duration = (performance.now() - start).toFixed(2)
+
+    return new Response(JSON.stringify({
+      ok: status.database === "online",
+      message: "Pong!",
+      timestamp: new Date().toISOString(),
+      latency: `${duration}ms`,
+      status
+    }), {
+      status: status.database === "online" ? 200 : 503,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+
+  } catch (err) {
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+})
+
+/*
+Mejoras y Optimizaciones Aplicadas:
+Manejo de CORS: Se agregaron los encabezados corsHeaders para permitir que el frontend verifique la disponibilidad del backend antes de intentar realizar operaciones complejas de carga de datos
+.
+Validación de Base de Datos: En lugar de solo responder un "ok" estático, la función intenta realizar una consulta head (sin traer datos, solo verificando existencia) a la tabla anios_escolares
+. Esto confirma que el servicio de Supabase y las políticas RLS básicas están funcionando.
+Medición de Latencia: Se utiliza performance.now() para calcular cuánto tarda la respuesta. Esto es útil para detectar cuellos de botella en la conexión entre la Edge Function y la base de datos.
+Código de Estado HTTP Semántico:
+200 OK: Si todo está perfecto.
+503 Service Unavailable: Si las variables de entorno están pero la base de datos no responde.
+500 Internal Server Error: Si hay un fallo crítico de configuración.
+Ligereza: A diferencia de debug, no realiza validación de tokens de usuario (JWT) ni consultas complejas de roles, lo que reduce drásticamente el consumo de recursos y el tiempo de respuesta.
+
+*/

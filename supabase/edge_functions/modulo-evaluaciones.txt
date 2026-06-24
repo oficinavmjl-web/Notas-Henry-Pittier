@@ -1,0 +1,105 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+/**
+ * Cabeceras CORS estandarizadas para compatibilidad con el frontend
+ * y otros módulos de Edge Functions [1, 2].
+ */
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  // Manejo de peticiones preflight (CORS)
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    // Inicialización del cliente con Service Role para operaciones administrativas [1]
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    )
+
+    const { action, data } = await req.json()
+
+    switch (action) {
+      /**
+       * ACCIÓN: registrar_notas
+       * Procesa la carga masiva de calificaciones aplicando la regla institucional
+       * del 01 al 20 antes de la inserción [4].
+       */
+      case 'registrar_notas':
+        if (!data.notas || !Array.isArray(data.notas)) {
+          throw new Error("Formato de notas inválido")
+        }
+
+        const notasProcesadas = data.notas.map((n: any) => ({
+          evaluacion_id: n.evaluacion_id,
+          estudiante_id: n.estudiante_id,
+          // Regla institucional: nota mínima 1, máxima 20 [4, 5]
+          nota: n.nota < 1 ? 1 : (n.nota > 20 ? 20 : n.nota),
+          observacion: n.observacion || null
+        }))
+
+        // Upsert en la tabla evaluaciones_notas [5, 6]
+        // Esto dispara automáticamente el trigger 'trg_actualizar_promedio' [7]
+        const { error: errorNotas } = await supabaseAdmin
+          .from('evaluaciones_notas')
+          .upsert(notasProcesadas)
+
+        if (errorNotas) throw errorNotas
+
+        return new Response(
+          JSON.stringify({ ok: true, message: "Calificaciones registradas exitosamente" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
+      /**
+       * ACCIÓN: generar_sabana
+       * Genera el reporte de calificaciones consolidado, identificando
+       * automáticamente a los alumnos retirados [4, 8].
+       */
+      case 'generar_sabana':
+        const { seccion_id } = data
+        
+        // Consulta integrada: Inscripciones + Estudiantes + Notas [6, 9]
+        const { data: sabana, error: errorSabana } = await supabaseAdmin
+          .from('inscripciones')
+          .select(`
+            estudiante_id,
+            estado,
+            estudiantes (cedula, nombres, apellidos),
+            evaluaciones_notas (nota, evaluacion_id)
+          `)
+          .eq('seccion_id', seccion_id)
+
+        if (errorSabana) throw errorSabana
+
+        // Lógica de visualización: Si el estado es 'retirado', mostrar 'RET' [4]
+        const reporteFinal = sabana.map((reg: any) => ({
+          ...reg,
+          calificaciones: reg.estado === 'retirado' 
+            ? 'RET' 
+            : reg.evaluaciones_notas
+        }))
+
+        return new Response(
+          JSON.stringify({ ok: true, reporte: reporteFinal }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+
+      default:
+        throw new Error(`Acción '${action}' no soportada por el módulo de evaluaciones`)
+    }
+
+  } catch (err: any) {
+    // Error handling estandarizado con el resto de módulos [10, 11]
+    return new Response(
+      JSON.stringify({ error: err.message }), 
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluación Docente - NOTAS Henry Pittier</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../../css/styles.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #6f42c1;
+      --secondary-color: #6c757d;
+    }
+
+    body {
+      background-color: #f5f7fa;
+    }
+
+    .navbar-custom {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #5a32a3 100%);
+    }
+
+    .sidebar {
+      background-color: #fff;
+      border-right: 1px solid #e9ecef;
+      position: sticky;
+      top: 56px;
+      min-height: calc(100vh - 56px);
+    }
+
+    .nav-item a {
+      border-left: 3px solid transparent;
+      padding: 12px 16px;
+    }
+
+    .nav-item a:hover,
+    .nav-item a.active {
+      background-color: #f8f9fa;
+      border-left-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .main-content {
+      padding: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .nota-cell {
+      text-align: center;
+      padding: 8px !important;
+    }
+
+    .nota-value {
+      background-color: #f8f9fa;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="javascript:location.reload()">
+        <i class="bi bi-clipboard-check"></i> Evaluación Docente | NOTAS
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.irAPerfil()">
+              <i class="bi bi-person-circle"></i> Mi Perfil
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.logout()">
+              <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid" style="margin-top: 56px;">
+    <div class="row g-0">
+      <!-- SIDEBAR -->
+      <div class="col-md-3 d-none d-md-block">
+        <div class="sidebar">
+          <div class="p-3 border-bottom">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #5a32a3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;" id="userInitials">E</div>
+              <div>
+                <div style="font-weight: 600; font-size: 0.9rem;" id="userName">Evaluador</div>
+                <small class="text-muted" id="userEmail">eval@ejemplo.com</small>
+              </div>
+            </div>
+          </div>
+          <nav class="nav flex-column">
+            <a class="nav-item nav-link active" href="javascript:cargarSeccion('inicio')">
+              <i class="bi bi-speedometer2"></i> Panel Principal
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('asignaciones')">
+              <i class="bi bi-diagram-3"></i> Asignación de Docentes
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('calificaciones')">
+              <i class="bi bi-list-check"></i> Revisión de Notas
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('reportes')">
+              <i class="bi bi-file-earmark-chart"></i> Reportes
+            </a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="col-md-9">
+        <div class="main-content">
+          <div id="contentArea">
+            <!-- Contenido dinámico -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ASIGNAR DOCENTE -->
+  <div class="modal fade" id="modalAsignarDocente" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header" style="background: linear-gradient(135deg, var(--primary-color), #5a32a3); color: white;">
+          <h5 class="modal-title">Asignar Docente a Materia</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Sección *</label>
+            <select class="form-select" id="seccionSelect" required>
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Materia *</label>
+            <select class="form-select" id="materiaSelect" required>
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Docente *</label>
+            <select class="form-select" id="docenteSelect" required>
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button id="btnAsignarEvaluacion" type="button" class="btn btn-primary">Asignar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../../js/supabase.js"></script>
+  <script src="../../js/services/session.js"></script>
+  <script src="../../js/services/api.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!sessionAPI.estaAutenticado()) {
+        window.location.href = '/index.html';
+        return;
+      }
+
+      const rol = sessionAPI.obtenerRolPrincipal();
+      if (rol !== 'Evaluacion_docente') {
+        window.location.href = '/index.html';
+        return;
+      }
+
+      const usuario = sessionAPI.obtenerUsuario();
+      document.getElementById('userName').textContent = `${usuario.nombre} ${usuario.apellido}`;
+      document.getElementById('userEmail').textContent = usuario.email;
+
+      cargarSeccion('inicio');
+    });
+
+    async function cargarSeccion(seccion) {
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      const activeLink = document.querySelector(`.nav-item[href*="${seccion}"]`);
+      if (activeLink) activeLink.classList.add('active');
+
+      switch(seccion) {
+        case 'inicio':
+          await cargarInicio();
+          break;
+        case 'asignaciones':
+          await cargarAsignaciones();
+          break;
+        case 'calificaciones':
+          await cargarCalificaciones();
+          break;
+        case 'reportes':
+          await cargarReportes();
+          break;
+      }
+    }
+
+    async function cargarInicio() {
+      const contentArea = document.getElementById('contentArea');
+      try {
+        const periodoActivo = await API.periodos.obtenerActivo();
+        const secciones = await API.secciones.listar();
+
+        contentArea.innerHTML = `
+          <div class="page-header">
+            <h2><i class="bi bi-speedometer2"></i> Panel Principal</h2>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${secciones?.length || 0}</div>
+                <div class="stat-label">Secciones Activas</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${periodoActivo ? 'Activo' : 'Cerrado'}</div>
+                <div class="stat-label">Período Académico</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Notas Pendientes</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color), #5a32a3); color: white; border: none;">
+              <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información del Período</h5>
+            </div>
+            <div class="card-body">
+              <p><strong>Período Actual:</strong> ${periodoActivo?.nombre || 'No hay período activo'}</p>
+              <p><strong>Secciones bajo evaluación:</strong> ${secciones?.length || 0}</p>
+            </div>
+          </div>
+        `;
+
+      } catch(error) {
+        console.error('Error:', error);
+        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function cargarAsignaciones() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-diagram-3"></i> Asignación de Docentes</h2>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAsignarDocente">
+            + Asignar Docente
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead style="background-color: #f8f9fa;">
+              <tr>
+                <th>Sección</th>
+                <th>Materia</th>
+                <th>Docente Asignado</th>
+                <th>Lapso</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="asignacionesTable">
+              <tr><td colspan="5" class="text-center text-muted">Cargando asignaciones...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      try {
+        const secciones = await API.secciones.listar();
+        const tabla = document.getElementById('asignacionesTable');
+        
+        if (secciones && secciones.length > 0) {
+          let html = '';
+          for (const seccion of secciones) {
+            const materias = await API.secciones.listarMaterias(seccion.id);
+            if (materias) {
+              materias.forEach(m => {
+                html += `
+                  <tr>
+                    <td><strong>${seccion.nombre}</strong></td>
+                    <td>${m.nombre}</td>
+                    <td>${m.docente_nombre || 'Sin asignar'}</td>
+                    <td>${m.lapso_numero || '-'}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-danger">Cambiar</button>
+                    </td>
+                  </tr>
+                `;
+              });
+            }
+          }
+          tabla.innerHTML = html || '<tr><td colspan="5" class="text-center text-muted">Sin asignaciones</td></tr>';
+        }
+      } catch(error) {
+        console.error('Error:', error);
+      }
+    }
+
+    async function cargarCalificaciones() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-list-check"></i> Revisión de Calificaciones</h2>
+        </div>
+
+        <div class="row mb-4">
+          <div class="col-md-4">
+            <label class="form-label">Sección</label>
+            <select class="form-select" id="filtroSeccion" onchange="actualizarTablaCalificaciones()">
+              <option value="">-- Todas --</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Lapso</label>
+            <select class="form-select" id="filtroLapso" onchange="actualizarTablaCalificaciones()">
+              <option value="">-- Todos --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover table-sm">
+            <thead style="background-color: #f8f9fa;">
+              <tr>
+                <th>Estudiante</th>
+                <th>Materia</th>
+                <th>Nota</th>
+                <th>Lapso</th>
+                <th>Docente</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="calificacionesTable">
+              <tr><td colspan="6" class="text-center text-muted">Cargando calificaciones...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function cargarReportes() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-file-earmark-chart"></i> Reportes</h2>
+        </div>
+
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i> Módulo de reportes de evaluación docente y calificaciones.
+        </div>
+
+        <div class="row">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h5><i class="bi bi-graph-up"></i> Reporte de Notas por Sección</h5>
+                <p class="text-muted">Descarga un reporte consolidado de todas las notas</p>
+                <button class="btn btn-sm btn-outline-primary">Generar</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h5><i class="bi bi-file-earmark-pdf"></i> Reporte de Evaluaciones</h5>
+                <p class="text-muted">Descarga reporte de métodos de evaluación utiliza</p>
+                <button class="btn btn-sm btn-outline-primary">Generar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function guardarAsignacion() {
+      const seccionId = document.getElementById('seccionSelect').value;
+      const materiaId = document.getElementById('materiaSelect').value;
+      const docenteId = document.getElementById('docenteSelect').value;
+
+      if (!seccionId || !materiaId || !docenteId) {
+        alert('Por favor completa todos los campos');
+        return;
+      }
+
+      try {
+        await API.secciones.asignarDocente(seccionId, materiaId, docenteId);
+        bootstrap.Modal.getInstance(document.getElementById('modalAsignarDocente')).hide();
+        cargarAsignaciones();
+      } catch(error) {
+        alert(`Error: ${error.message}`);
+      }
+    }
+
+    // Attach button to prevent doble envío
+    setTimeout(() => {
+      const btn = document.getElementById('btnAsignarEvaluacion');
+      if (btn) btn.addEventListener('click', async () => await runAsyncWithButton(btn, guardarAsignacion, 'Asignando...'));
+    }, 50);
+  </script>
+</body>
+</html>
