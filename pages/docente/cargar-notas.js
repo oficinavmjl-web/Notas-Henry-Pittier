@@ -715,5 +715,51 @@ function configurarEventListeners() {
 }
 
 // ============================================================================
+// 11. FUNCIONES FALTANTES / HELPERS
+// ============================================================================
+
+/**
+ * Valida que una nota sea numérica y esté entre 1 y 20
+ */
+function esNotaValida(nota) {
+  return !isNaN(nota) && nota >= 0 && nota <= 20;
+}
+
+/**
+ * Obtiene la sesión del usuario actual
+ */
+function obtenerSesionUsuario() {
+  const sesion = sessionAPI.obtenerSesion();
+  return sesion || { user_id: null, rol_principal: "" };
+}
+
+/**
+ * Ejecuta una función asincrónica con feedback visual en el botón
+ */
+async function runAsyncWithButton(btn, fn, loadingText = "Guardando...") {
+  if (!btn) return fn();
+  
+  const originalText = btn.textContent;
+  const originalState = btn.disabled;
+  
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`;
+  
+  try {
+    return await fn();
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = originalState;
+  }
+}
+
+/**
+ * Muestra un mensaje de advertencia temporal
+ */
+function mostrarAdvertencia(mensaje, duracion = 4000) {
+  mostrarAlerta(mensaje, "warning", duracion);
+}
+
+// ============================================================================
 // FIN DEL MÓDULO
 // ============================================================================

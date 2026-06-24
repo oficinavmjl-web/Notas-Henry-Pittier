@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Estudiante - NOTAS Henry Pittier</title>
+  <title>Estudiante Dashboard - NOTAS Henry Pittier</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
   <link href="../../css/styles.css" rel="stylesheet">
   <style>
     :root {
-      --primary-color: #17a2b8;
-      --secondary-color: #6c757d;
+      --primary-color: #007bff;
     }
 
     body {
@@ -18,7 +17,7 @@
     }
 
     .navbar-custom {
-      background: linear-gradient(135deg, var(--primary-color) 0%, #138496 100%);
+      background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%);
     }
 
     .sidebar {
@@ -32,6 +31,9 @@
     .nav-item a {
       border-left: 3px solid transparent;
       padding: 12px 16px;
+      text-decoration: none;
+      color: #495057;
+      display: block;
     }
 
     .nav-item a:hover,
@@ -60,17 +62,13 @@
       color: var(--primary-color);
     }
 
-    .nota-badge {
-      font-size: 1.2rem;
-      font-weight: 700;
-      padding: 10px 15px;
-      border-radius: 8px;
+    .calificacion-item {
+      background: #f8f9fa;
+      border-left: 4px solid var(--primary-color);
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 4px;
     }
-
-    .nota-excelente { background-color: #d4edda; color: #155724; }
-    .nota-buena { background-color: #cfe2ff; color: #084298; }
-    .nota-regular { background-color: #fff3cd; color: #664d03; }
-    .nota-baja { background-color: #f8d7da; color: #842029; }
   </style>
 </head>
 <body>
@@ -78,7 +76,7 @@
   <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
     <div class="container-fluid">
       <a class="navbar-brand" href="javascript:location.reload()">
-        <i class="bi bi-mortarboard-fill"></i> Mi Panel | NOTAS
+        <i class="bi bi-mortarboard"></i> Estudiante | NOTAS
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
@@ -86,12 +84,12 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item">
-            <a class="nav-link" href="javascript:nav.irAPerfil()">
+            <a class="nav-link" href="javascript:irAPerfil()">
               <i class="bi bi-person-circle"></i> Mi Perfil
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="javascript:nav.logout()">
+            <a class="nav-link" href="javascript:logout()">
               <i class="bi bi-box-arrow-right"></i> Salir
             </a>
           </li>
@@ -107,7 +105,7 @@
         <div class="sidebar">
           <div class="p-3 border-bottom">
             <div style="display: flex; gap: 10px; align-items: center;">
-              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #138496); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;" id="userInitials">E</div>
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #0056b3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">E</div>
               <div>
                 <div style="font-weight: 600; font-size: 0.9rem;" id="userName">Estudiante</div>
                 <small class="text-muted" id="userEmail">estudiante@ejemplo.com</small>
@@ -116,13 +114,16 @@
           </div>
           <nav class="nav flex-column">
             <a class="nav-item nav-link active" href="javascript:cargarSeccion('inicio')">
-              <i class="bi bi-speedometer2"></i> Mis Notas
+              <i class="bi bi-speedometer2"></i> Mi Panel
             </a>
-            <a class="nav-item nav-link" href="javascript:cargarSeccion('detalles')">
-              <i class="bi bi-file-person"></i> Mis Detalles
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('calificaciones')">
+              <i class="bi bi-graph-up"></i> Mis Calificaciones
             </a>
-            <a class="nav-item nav-link" href="javascript:cargarSeccion('historial')">
-              <i class="bi bi-clock-history"></i> Historial Académico
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('perfil')">
+              <i class="bi bi-person"></i> Mi Perfil
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('ayuda')">
+              <i class="bi bi-question-circle"></i> Ayuda
             </a>
           </nav>
         </div>
@@ -141,171 +142,188 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../../js/supabase.js"></script>
   <script src="../../js/services/session.js"></script>
   <script src="../../js/services/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/utils-mejorado.js"></script>
+  <script src="../../js/utils-frontend.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      const rol = sessionAPI.obtenerRolPrincipal();
-      if (!sessionAPI.estaAutenticado() || rol !== 'Estudiante') {
-        window.location.href = '/index.html?access_denied=1';
+      if (!validarAcceso(['Estudiante'])) {
         return;
       }
 
-      const usuario = sessionAPI.obtenerUsuario();
-      document.getElementById('userName').textContent = `${usuario.nombre} ${usuario.apellido}`;
-      document.getElementById('userEmail').textContent = usuario.email;
+      const sesion = sessionAPI.obtenerSesion();
+      document.getElementById('userName').textContent = obtenerNombreUsuario();
+      document.getElementById('userEmail').textContent = sesion?.user?.email || 'correo@ejemplo.com';
 
-      cargarSeccion('inicio');
+      await cargarSeccion('inicio');
     });
 
     async function cargarSeccion(seccion) {
-      document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-      });
-      const activeLink = document.querySelector(`.nav-item[href*="${seccion}"]`);
-      if (activeLink) activeLink.classList.add('active');
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = '<div class="text-center"><span class="spinner-border"></span> Cargando...</div>';
 
-      switch(seccion) {
-        case 'inicio':
-          await cargarMisNotas();
-          break;
-        case 'detalles':
-          await cargarDetalles();
-          break;
-        case 'historial':
-          await cargarHistorialAcademico();
-          break;
+      try {
+        switch(seccion) {
+          case 'inicio':
+            await cargarInicio();
+            break;
+          case 'calificaciones':
+            await cargarCalificaciones();
+            break;
+          case 'perfil':
+            await cargarPerfil();
+            break;
+          case 'ayuda':
+            await cargarAyuda();
+            break;
+        }
+      } catch(e) {
+        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
       }
     }
 
-    async function cargarMisNotas() {
-      const contentArea = document.getElementById('contentArea');
+    async function cargarInicio() {
+      const sesion = sessionAPI.obtenerSesion();
+
       try {
-        const usuario = sessionAPI.obtenerUsuario();
-        const periodoActivo = await API.periodos.obtenerActivo();
-        const estudiantes = await API.estudiantes.listar();
-        const miEstudiante = Array.isArray(estudiantes)
-          ? estudiantes.find(e => e.user_id === usuario.user_id || e.id === usuario.user_id)
-          : null;
+        const { data: inscripciones, error } = await supabase
+          .from('inscripciones')
+          .select('seccion_id, secciones:seccion_id(grado, letra), estado')
+          .eq('estudiante_id', sesion?.user?.id)
+          .limit(1)
+          .single();
 
-        contentArea.innerHTML = `
-          <div class="page-header">
-            <h2><i class="bi bi-speedometer2"></i> Mis Notas Actuales</h2>
-          </div>
-
+        const html = `
+          <h1 class="mb-4"><i class="bi bi-speedometer2"></i> Mi Panel</h1>
+          
           <div class="row">
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6">
               <div class="stat-card">
-                <div class="stat-number">${miEstudiante?.promedio ?? '0.0'}</div>
-                <div class="stat-label">Promedio General</div>
+                <div class="stat-number">${inscripciones?.secciones?.grado || '-'}°</div>
+                <p class="text-muted mb-0">Mi Sección</p>
+                <small>${inscripciones?.secciones?.letra || 'Sin sección'}</small>
               </div>
             </div>
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6">
               <div class="stat-card">
-                <div class="stat-number">${miEstudiante?.materias_count ?? '0'}</div>
-                <div class="stat-label">Materias Cursando</div>
-              </div>
-            </div>
-            <div class="col-md-6 col-lg-4">
-              <div class="stat-card">
-                <div class="stat-number">${periodoActivo?.nombre || 'N/A'}</div>
-                <div class="stat-label">Período Actual</div>
+                <div class="stat-number" style="color: ${inscripciones?.estado === 'activo' ? '#28a745' : '#dc3545'}">
+                  ${(inscripciones?.estado || 'desconocido').toUpperCase()}
+                </div>
+                <p class="text-muted mb-0">Estado</p>
+                <small>En el sistema</small>
               </div>
             </div>
           </div>
 
           <div class="card mt-4">
-            <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color), #138496); color: white; border: none;">
-              <h5 class="mb-0"><i class="bi bi-list-check"></i> Notas del Lapso Actual</h5>
+            <div class="card-header bg-light">
+              <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Acciones Rápidas</h5>
             </div>
             <div class="card-body">
-              <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                  <thead style="background-color: #f8f9fa;">
-                    <tr>
-                      <th>Materia</th>
-                      <th>Docente</th>
-                      <th>Nota</th>
-                      <th>Detalles</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colspan="4" class="text-center text-muted">No hay notas disponibles para el período actual</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="list-group">
+                <a href="javascript:cargarSeccion('calificaciones')" class="list-group-item list-group-item-action">
+                  <h6 class="mb-1"><i class="bi bi-graph-up"></i> Ver Mis Calificaciones</h6>
+                  <small class="text-muted">Consulta tus notas por materia y lapso</small>
+                </a>
               </div>
             </div>
           </div>
         `;
 
-      } catch(error) {
-        console.error('Error:', error);
-        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        document.getElementById('contentArea').innerHTML = html;
+      } catch(e) {
+        document.getElementById('contentArea').innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
       }
     }
 
-    async function cargarDetalles() {
-      const contentArea = document.getElementById('contentArea');
+    async function cargarCalificaciones() {
+      mostrarCargando(true, "Cargando calificaciones...");
+
       try {
-        const usuario = sessionAPI.obtenerUsuario();
-        const estudiantes = await API.estudiantes.listar();
-        const miEstudiante = Array.isArray(estudiantes)
-          ? estudiantes.find(e => e.user_id === usuario.user_id || e.id === usuario.user_id)
-          : null;
+        const sesion = sessionAPI.obtenerSesion();
+        const { data: notas } = await supabase
+          .from('calificaciones')
+          .select('id, nota, materia_id, lapso_id, materias:materia_id(nombre), lapsos:lapso_id(numero)')
+          .eq('estudiante_id', sesion?.user?.id)
+          .order('lapso_id', { ascending: true });
 
-        contentArea.innerHTML = `
-          <div class="page-header">
-            <h2><i class="bi bi-file-person"></i> Mis Detalles Académicos</h2>
-          </div>
+        let html = `<h2 class="mb-4"><i class="bi bi-graph-up"></i> Mis Calificaciones</h2>`;
 
-          <div class="card">
-            <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color), #138496); color: white; border: none;">
-              <h5 class="mb-0"><i class="bi bi-person"></i> Información Personal</h5>
-            </div>
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label class="form-label text-muted">Nombre Completo</label>
-                  <p class="fw-bold">${usuario.nombre} ${usuario.apellido}</p>
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label class="form-label text-muted">Cédula</label>
-                  <p class="fw-bold">${usuario.cedula || 'No especificada'}</p>
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label class="form-label text-muted">Email</label>
-                  <p class="fw-bold">${usuario.email}</p>
-                </div>
-                <div class="col-md-6 mb-3">
-                  <label class="form-label text-muted">Sección</label>
-                  <p class="fw-bold">${miEstudiante?.seccion_nombre || 'No asignada'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
+        if (!notas || notas.length === 0) {
+          html += '<div class="alert alert-info">No hay calificaciones registradas aún</div>';
+        } else {
+          const porLapso = {};
+          notas.forEach(n => {
+            if (!porLapso[n.lapso_id]) porLapso[n.lapso_id] = [];
+            porLapso[n.lapso_id].push(n);
+          });
 
-      } catch(error) {
-        console.error('Error:', error);
-        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+          for (const [lapsoId, notasLapso] of Object.entries(porLapso)) {
+            html += `<div class="card mb-3"><div class="card-header"><strong>Lapso ${notasLapso[0]?.lapsos?.numero || lapsoId}</strong></div><div class="card-body">`;
+            
+            notasLapso.forEach(n => {
+              html += `
+                <div class="calificacion-item">
+                  <div class="row">
+                    <div class="col-md-8"><h6 class="mb-0">${n.materias?.nombre || 'Materia desconocida'}</h6></div>
+                    <div class="col-md-4 text-end"><span class="badge bg-${n.nota >= 10 ? 'success' : n.nota >= 8 ? 'warning' : 'danger'}">${n.nota}/20</span></div>
+                  </div>
+                </div>
+              `;
+            });
+
+            html += '</div></div>';
+          }
+        }
+
+        document.getElementById('contentArea').innerHTML = html;
+        mostrarCargando(false);
+      } catch(e) {
+        mostrarError(e.message);
+        mostrarCargando(false);
       }
     }
 
-    async function cargarHistorialAcademico() {
-      const contentArea = document.getElementById('contentArea');
-      contentArea.innerHTML = `
-        <div class="page-header">
-          <h2><i class="bi bi-clock-history"></i> Historial Académico</h2>
-        </div>
-
-        <div class="alert alert-info">
-          <i class="bi bi-info-circle"></i> Aquí aparecerán tus notas de períodos anteriores
+    async function cargarPerfil() {
+      const sesion = sessionAPI.obtenerSesion();
+      const html = `
+        <h2 class="mb-4"><i class="bi bi-person"></i> Mi Perfil</h2>
+        <div class="card">
+          <div class="card-body">
+            <div class="row mb-3">
+              <div class="col-md-6"><label class="form-label"><strong>Nombre:</strong></label><p>${sesion?.user?.user_metadata?.nombres || 'No especificado'}</p></div>
+              <div class="col-md-6"><label class="form-label"><strong>Apellido:</strong></label><p>${sesion?.user?.user_metadata?.apellidos || 'No especificado'}</p></div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-6"><label class="form-label"><strong>Email:</strong></label><p>${sesion?.user?.email || 'No especificado'}</p></div>
+              <div class="col-md-6"><label class="form-label"><strong>Cédula:</strong></label><p>${sesion?.user?.user_metadata?.cedula || 'No especificado'}</p></div>
+            </div>
+          </div>
         </div>
       `;
+      document.getElementById('contentArea').innerHTML = html;
+      mostrarCargando(false);
+    }
+
+    async function cargarAyuda() {
+      const html = `
+        <h2 class="mb-4"><i class="bi bi-question-circle"></i> Centro de Ayuda</h2>
+        <div class="accordion" id="accordion">
+          <div class="accordion-item">
+            <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">¿Cómo veo mis calificaciones?</button></h2>
+            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#accordion"><div class="accordion-body">Haz clic en "Mis Calificaciones" para ver todas tus notas organizadas por lapso.</div></div>
+          </div>
+        </div>
+      `;
+      document.getElementById('contentArea').innerHTML = html;
+      mostrarCargando(false);
+    }
+
+    function irAPerfil() {
+      window.location.href = '/pages/perfil.html';
     }
   </script>
 </body>

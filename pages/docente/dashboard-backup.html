@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docente Dashboard - NOTAS Henry Pittier</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="../../css/styles.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #28a745;
+      --secondary-color: #6c757d;
+    }
+
+    body {
+      background-color: #f5f7fa;
+    }
+
+    .navbar-custom {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #1e7e34 100%);
+    }
+
+    .sidebar {
+      background-color: #fff;
+      border-right: 1px solid #e9ecef;
+      position: sticky;
+      top: 56px;
+      min-height: calc(100vh - 56px);
+    }
+
+    .nav-item a {
+      border-left: 3px solid transparent;
+      padding: 12px 16px;
+    }
+
+    .nav-item a:hover,
+    .nav-item a.active {
+      background-color: #f8f9fa;
+      border-left-color: var(--primary-color);
+      color: var(--primary-color);
+    }
+
+    .main-content {
+      padding: 30px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 20px;
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+
+    .card-seccion {
+      border-left: 4px solid var(--primary-color);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .card-seccion:hover {
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
+    }
+
+    .input-nota {
+      width: 70px;
+      text-align: center;
+      padding: 6px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .input-nota:focus {
+      border-color: var(--primary-color);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+    }
+
+    .input-nota.error {
+      border-color: #dc3545;
+      background-color: #ffe5e5;
+    }
+
+    .badge-seccion {
+      background-color: #e8f5e9;
+      color: #1e7e34;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="javascript:location.reload()">
+        <i class="bi bi-person-workspace"></i> Docente | NOTAS
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.irAPerfil()">
+              <i class="bi bi-person-circle"></i> Mi Perfil
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="javascript:nav.logout()">
+              <i class="bi bi-box-arrow-right"></i> Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid" style="margin-top: 56px;">
+    <div class="row g-0">
+      <!-- SIDEBAR -->
+      <div class="col-md-3 d-none d-md-block">
+        <div class="sidebar">
+          <div class="p-3 border-bottom">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary-color), #1e7e34); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;" id="userInitials">D</div>
+              <div>
+                <div style="font-weight: 600; font-size: 0.9rem;" id="userName">Docente</div>
+                <small class="text-muted" id="userEmail">docente@ejemplo.com</small>
+              </div>
+            </div>
+          </div>
+          <nav class="nav flex-column">
+            <a class="nav-item nav-link active" href="javascript:cargarSeccion('inicio')">
+              <i class="bi bi-speedometer2"></i> Panel Principal
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('misecciones')">
+              <i class="bi bi-building"></i> Mis Secciones
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('cargarnotas')">
+              <i class="bi bi-pencil-square"></i> Cargar Notas
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('historial')">
+              <i class="bi bi-clock-history"></i> Historial Notas
+            </a>
+            <a class="nav-item nav-link" href="javascript:cargarSeccion('asesorias')">
+              <i class="bi bi-chat-dots"></i> Asesorías
+            </a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="col-md-9">
+        <div class="main-content">
+          <div id="contentArea">
+            <!-- Contenido dinámico -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <script src="../../js/supabase.js"></script>
+  <script src="../../js/services/session.js"></script>
+  <script src="../../js/services/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/utils-mejorado.js"></script>
+  <script src="../../js/utils-frontend.js"></script>
+  <script src="dashboard.js"></script>
+
+    async function cargarSeccion(seccion) {
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      if (event?.target) {
+        event.target.closest('.nav-item').classList.add('active');
+      }
+
+      switch(seccion) {
+        case 'inicio':
+          await cargarInicio();
+          break;
+        case 'misecciones':
+          await cargarMisSecciones();
+          break;
+        case 'cargarnotas':
+          await cargarNotasUI();
+          break;
+        case 'historial':
+          await cargarHistorial();
+          break;
+        case 'asesorias':
+          await cargarAsesorias();
+          break;
+      }
+    }
+
+    async function cargarInicio() {
+      const contentArea = document.getElementById('contentArea');
+      try {
+        const periodoActivo = await API.periodos.obtenerActivo();
+        const secciones = await API.secciones.listar();
+        const misSecciones = secciones.filter(s => s.docente_id === sessionAPI.obtenerUsuario().user_id);
+
+        contentArea.innerHTML = `
+          <div class="page-header">
+            <h2><i class="bi bi-speedometer2"></i> Panel Principal</h2>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${misSecciones?.length || 0}</div>
+                <div class="stat-label">Secciones Asignadas</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">${periodoActivo ? 'Activo' : 'Cerrado'}</div>
+                <div class="stat-label">Período Académico</div>
+              </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+              <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Lapso Actual</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color), #1e7e34); color: white; border: none;">
+              <h5 class="mb-0"><i class="bi bi-info-circle"></i> Estado de Carga de Notas</h5>
+            </div>
+            <div class="card-body">
+              <p><strong>Período Actual:</strong> ${periodoActivo?.nombre || 'No hay período activo'}</p>
+              <p><strong>Secciones a mi cargo:</strong> ${misSecciones?.length || 0}</p>
+              <p><strong>Ventana de carga:</strong> Abierta</p>
+            </div>
+          </div>
+        `;
+
+      } catch(error) {
+        console.error('Error:', error);
+        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function cargarMisSecciones() {
+      const contentArea = document.getElementById('contentArea');
+      try {
+        const secciones = await API.secciones.listar();
+        const usuario = sessionAPI.obtenerUsuario();
+        const misSecciones = secciones.filter(s => s.docente_id === usuario.user_id);
+
+        let html = `
+          <div class="page-header">
+            <h2><i class="bi bi-building"></i> Mis Secciones Asignadas</h2>
+          </div>
+        `;
+
+        if (misSecciones && misSecciones.length > 0) {
+          html += '<div class="row">';
+          for (const seccion of misSecciones) {
+            const materias = await API.secciones.listarMaterias(seccion.id);
+            html += `
+              <div class="col-md-6 mb-4">
+                <div class="card card-seccion">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                      <span class="badge badge-seccion">${seccion.nombre}</span>
+                    </h5>
+                    <p class="text-muted mb-3">Grado: ${seccion.grado} | Sección: ${seccion.seccion}</p>
+                    <h6>Materias asignadas:</h6>
+                    <ul class="list-unstyled">
+                      ${materias?.map(m => `<li><i class="bi bi-book"></i> ${m.nombre}</li>`).join('') || '<li class="text-muted">Sin materias</li>'}
+                    </ul>
+                    <button class="btn btn-sm btn-outline-success mt-3" onclick="irACargarNotas('${seccion.id}', '${seccion.nombre}')">
+                      <i class="bi bi-pencil-square"></i> Cargar Notas
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+          html += '</div>';
+        } else {
+          html += '<div class="alert alert-warning">No tienes secciones asignadas</div>';
+        }
+
+        contentArea.innerHTML = html;
+
+      } catch(error) {
+        console.error('Error:', error);
+        contentArea.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function cargarNotasUI() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-pencil-square"></i> Cargar Notas</h2>
+        </div>
+
+        <div class="row mb-4">
+          <div class="col-md-4">
+            <label class="form-label"><strong>Selecciona una Sección</strong></label>
+            <select class="form-select" id="seccionSelect" onchange="cargarMateriasDeSeccion()">
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label"><strong>Materia</strong></label>
+            <select class="form-select" id="materiaSelect" onchange="cargarEstudiantesSeccion()">
+              <option value="">-- Todas --</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label"><strong>Lapso</strong></label>
+            <select class="form-select" id="lapsoSelect" onchange="cargarEstudiantesSeccion()">
+              <option value="">-- Seleccionar --</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+          <div class="col">
+            <div class="card p-3">
+              <div class="mb-3">
+                <label class="form-label"><strong>Tema generador</strong></label>
+                <input type="text" class="form-control" id="temaGenerador" placeholder="Tema generador">
+              </div>
+              <div class="mb-3">
+                <label class="form-label"><strong>Técnica</strong></label>
+                <input type="text" class="form-control" id="tecnica" placeholder="Técnica de evaluación">
+              </div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="card p-3">
+              <div class="mb-3">
+                <label class="form-label"><strong>Instrumento</strong></label>
+                <input type="text" class="form-control" id="instrumento" placeholder="Instrumento de evaluación">
+              </div>
+              <div class="mb-3">
+                <label class="form-label"><strong>% Evaluación</strong></label>
+                <input type="number" class="form-control" id="porcentajeEvaluacion" min="1" max="100" placeholder="Ej. 20">
+              </div>
+              <div class="mb-3">
+                <label class="form-label"><strong>Fecha</strong></label>
+                <input type="date" class="form-control" id="fechaEvaluacion">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tablasNotasContainer">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Selecciona una sección y un lapso para ver los estudiantes. Luego podrás descargar la planilla en formato XLSX o PDF.
+          </div>
+        </div>
+      `;
+
+      // Cargar secciones
+      try {
+        const secciones = await API.secciones.listar();
+        const usuario = sessionAPI.obtenerUsuario();
+        const misSecciones = secciones.filter(s => s.docente_id === usuario.user_id || s.asesor_id === usuario.user_id);
+
+        const selectSeccion = document.getElementById('seccionSelect');
+        selectSeccion.innerHTML = '<option value="">-- Seleccionar --</option>' + 
+          misSecciones.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+
+        // Cargar lapsos
+        const periodos = await API.periodos.listarAnios();
+        const selectLapso = document.getElementById('lapsoSelect');
+        selectLapso.innerHTML = '<option value="">-- Seleccionar --</option>';
+        if (periodos && periodos.length > 0) {
+          const lapsos = await API.periodos.listarLapsos(periodos[0].id);
+          selectLapso.innerHTML = '<option value="">-- Seleccionar --</option>' + 
+            (lapsos?.map(l => `<option value="${l.id}">Lapso ${l.numero}</option>`).join('') || '');
+        }
+
+        document.getElementById('materiaSelect').innerHTML = '<option value="">-- Todas --</option>';
+      } catch(error) {
+        console.error('Error:', error);
+      }
+    }
+
+    async function cargarEstudiantesSeccion() {
+      const seccionId = document.getElementById('seccionSelect').value;
+      const materiaId = document.getElementById('materiaSelect').value;
+      const lapsoId = document.getElementById('lapsoSelect').value;
+      const container = document.getElementById('tablasNotasContainer');
+
+      if (!seccionId || !lapsoId) {
+        container.innerHTML = '<div class="alert alert-info"><i class="bi bi-info-circle"></i> Completa los campos requeridos</div>';
+        return;
+      }
+
+      try {
+        const estudiantes = await API.estudiantes.listar({ seccion_id: seccionId });
+        let materias = await API.secciones.listarMaterias(seccionId);
+        if (materiaId) {
+          materias = materias.filter(m => String(m.id) === String(materiaId));
+        }
+
+        seccionActual = { seccionId, lapsoId, materiaId };
+
+        let html = `
+          <div class="alert alert-success mb-4">
+            <i class="bi bi-check-circle"></i> Cargados ${estudiantes?.length || 0} estudiantes
+          </div>
+
+          <div class="mb-3 d-flex gap-2">
+            <button id="btnExportPlanillaXLSX" type="button" class="btn btn-outline-primary">
+              <i class="bi bi-file-earmark-spreadsheet"></i> Descargar planilla XLSX
+            </button>
+            <button id="btnExportPlanillaPDF" type="button" class="btn btn-outline-secondary">
+              <i class="bi bi-file-earmark-pdf"></i> Descargar planilla PDF
+            </button>
+          </div>
+
+          <form onsubmit="guardarNotas(event)">
+            <div class="table-responsive">
+              <table class="table table-hover table-sm" id="planillaNotasTable">
+                <thead style="background-color: #f8f9fa;">
+                  <tr>
+                    <th>Estudiante</th>
+                    <th>Cédula</th>
+                    ${materias?.map(m => `<th>${m.nombre.substring(0, 10)}</th>`).join('') || ''}
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${estudiantes?.map((est, idx) => `
+                    <tr>
+                      <td><strong>${est.nombre} ${est.apellido}</strong></td>
+                      <td>${est.cedula}</td>
+                      ${materias?.map(m => `
+                        <td>
+                          <input type="number" class="input-nota" name="nota_${est.id}_${m.id}" 
+                            min="1" max="20" placeholder="0" data-estudiante="${est.id}" data-materia="${m.id}">
+                        </td>
+                      `).join('') || ''}
+                      <td>
+                        <button type="button" class="btn btn-sm btn-outline-info" title="Detalles">
+                          <i class="bi bi-info-circle"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('') || '<tr><td colspan="10" class="text-center text-muted">Sin estudiantes</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-4">
+              <button type="submit" class="btn btn-success btn-lg">
+                <i class="bi bi-save"></i> Guardar Notas
+              </button>
+              <button type="reset" class="btn btn-secondary btn-lg ms-2">
+                <i class="bi bi-arrow-counterclockwise"></i> Limpiar
+              </button>
+            </div>
+          </form>
+        `;
+
+        container.innerHTML = html;
+
+      } catch(error) {
+        console.error('Error:', error);
+        container.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+      }
+    }
+
+    function irACargarNotas(seccionId, seccionNombre) {
+      document.getElementById('seccionSelect').value = seccionId;
+      cargarSeccion('cargarnotas');
+      setTimeout(() => {
+        document.getElementById('seccionSelect').value = seccionId;
+        cargarMateriasDeSeccion();
+      }, 100);
+    }
+
+    async function guardarNotas(e) {
+      e.preventDefault();
+      alert('Función de guardar notas - Se implementará con la BD');
+    }
+
+    async function cargarMateriasDeSeccion() {
+      const seccionId = document.getElementById('seccionSelect').value;
+      const materiaSelect = document.getElementById('materiaSelect');
+      materiaSelect.innerHTML = '<option value="">-- Todas --</option>';
+      if (!seccionId) return;
+      try {
+        const materias = await API.secciones.listarMaterias(seccionId);
+        materiaSelect.innerHTML += materias.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+      } catch(error) {
+        console.error('Error cargando materias:', error);
+      }
+      cargarEstudiantesSeccion();
+    }
+
+    async function cargarHistorial() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-clock-history"></i> Historial de Notas Cargadas</h2>
+        </div>
+
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle"></i> Aquí aparecerá el historial de todas las notas que hayas cargado
+        </div>
+      `;
+    }
+
+    let sabanaReportData = null;
+
+    async function cargarAsesorias() {
+      const contentArea = document.getElementById('contentArea');
+      contentArea.innerHTML = `
+        <div class="page-header">
+          <h2><i class="bi bi-chat-dots"></i> Asesorías Asignadas</h2>
+          <p class="text-muted">Si eres asesor designado, aquí podrás descargar la sábana de notas y revisarla en pantalla.</p>
+        </div>
+
+        <div id="asesoriasContainer">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> Cargando tus asesorías...
+          </div>
+        </div>
+      `;
+
+      try {
+        const usuario = sessionAPI.obtenerUsuario();
+        let secciones = [];
+        try {
+          secciones = await API.secciones.listar({ asesor_id: usuario.user_id });
+        } catch (_) {
+          secciones = await API.secciones.listar();
+        }
+
+        if (secciones && secciones.length > 0) {
+          secciones = secciones.filter(s => s.asesor_id === usuario.user_id || s.docente_id === usuario.user_id || s.asesor === usuario.user_id);
+        }
+
+        if (!secciones || secciones.length === 0) {
+          document.getElementById('asesoriasContainer').innerHTML = `
+            <div class="alert alert-warning">
+              <i class="bi bi-exclamation-triangle"></i> No se encontraron asesorías asignadas para tu cuenta.
+            </div>
+          `;
+          return;
+        }
+
+        const primeraSeccion = secciones[0];
+        const materias = await API.secciones.listarMaterias(primeraSeccion.id);
+        const estudiantes = await API.estudiantes.listar({ seccion_id: primeraSeccion.id });
+
+        sabanaReportData = {
+          seccion: primeraSeccion,
+          materias,
+          estudiantes,
+        };
+
+        const materiasHeaders = materias?.map(m => `<th>${m.nombre}</th>`).join('') || '';
+        const filas = estudiantes?.map((est, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${est.cedula || ''}</td>
+            <td>${est.apellido || est.apellidos || ''}</td>
+            <td>${est.nombre || ''}</td>
+            ${materias?.map(() => `<td></td>`).join('')}
+            <td></td>
+          </tr>
+        `).join('') || `<tr><td colspan="${4 + (materias?.length || 1)}" class="text-center text-muted">No hay estudiantes inscritos</td></tr>`;
+
+        document.getElementById('asesoriasContainer').innerHTML = `
+          <div class="mb-3 d-flex gap-2">
+            <button id="btnExportSabanaXLSX" type="button" class="btn btn-success">
+              <i class="bi bi-file-earmark-spreadsheet"></i> Descargar sábana XLSX
+            </button>
+            <button id="btnExportSabanaPDF" type="button" class="btn btn-outline-secondary">
+              <i class="bi bi-file-earmark-pdf"></i> Descargar sábana PDF
+            </button>
+          </div>
+          <div class="card mb-4">
+            <div class="card-body">
+              <p><strong>Sección:</strong> ${primeraSeccion.nombre}</p>
+              <p><strong>Asesor:</strong> ${usuario.nombre} ${usuario.apellido}</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm" id="sabanaNotasTable">
+              <thead class="table-light">
+                <tr>
+                  <th>N°</th>
+                  <th>C.I.</th>
+                  <th>Apellidos</th>
+                  <th>Nombres</th>
+                  ${materiasHeaders}
+                  <th>Promedio</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filas}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } catch(error) {
+        console.error('Error:', error);
+        document.getElementById('asesoriasContainer').innerHTML = `<div class="alert alert-danger">Error cargando asesorías: ${error.message}</div>`;
+      }
+    }
+
+    function getTableData(tableId) {
+      const table = document.getElementById(tableId);
+      if (!table) return null;
+      const rows = [];
+      const headerRows = table.tHead ? Array.from(table.tHead.rows) : [];
+      headerRows.forEach(row => {
+        const cells = Array.from(row.cells).map(cell => cell.textContent.trim());
+        if (cells.length) rows.push(cells);
+      });
+      const bodyRows = table.tBodies.length ? Array.from(table.tBodies[0].rows) : [];
+      bodyRows.forEach(row => {
+        const cells = Array.from(row.cells).map(cell => {
+          const input = cell.querySelector('input');
+          if (input) return input.value || input.placeholder || '';
+          return cell.textContent.trim();
+        });
+        if (cells.length) rows.push(cells);
+      });
+      return rows;
+    }
+
+    function downloadXLSX(sheetData, fileName) {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+      XLSX.writeFile(wb, fileName);
+    }
+
+    function exportPlanillaXLSX() {
+      const data = getTableData('planillaNotasTable');
+      if (!data) {
+        alert('No hay planilla disponible para descargar.');
+        return;
+      }
+      downloadXLSX(data, `planilla-notas-${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function exportSabanaXLSX() {
+      if (!sabanaReportData) {
+        alert('No hay sábana disponible para descargar.');
+        return;
+      }
+      const table = document.getElementById('sabanaNotasTable');
+      const data = getTableData('sabanaNotasTable');
+      if (!data) {
+        alert('No hay sábana disponible para descargar.');
+        return;
+      }
+      downloadXLSX(data, `sabana-notas-${sabanaReportData.seccion?.nombre || 'seccion'}-${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function exportPlanillaPDF() {
+      const data = getTableData('planillaNotasTable');
+      if (!data) {
+        alert('No hay planilla disponible para descargar.');
+        return;
+      }
+      const doc = new window.jspdf.jsPDF('landscape');
+      doc.setFontSize(12);
+      doc.text('Planilla de Notas', 14, 16);
+      doc.autoTable({
+        head: [data[0]],
+        body: data.slice(1),
+        startY: 22,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [33, 150, 243] },
+      });
+      doc.save(`planilla-notas-${new Date().toISOString().slice(0,10)}.pdf`);
+    }
+
+    function exportSabanaPDF() {
+      const data = getTableData('sabanaNotasTable');
+      if (!data) {
+        alert('No hay sábana disponible para descargar.');
+        return;
+      }
+      const doc = new window.jspdf.jsPDF('landscape');
+      doc.setFontSize(12);
+      doc.text('Sábana de Notas', 14, 16);
+      doc.autoTable({
+        head: [data[0]],
+        body: data.slice(1),
+        startY: 22,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [40, 167, 69] },
+      });
+      doc.save(`sabana-notas-${sabanaReportData?.seccion?.nombre || 'seccion'}-${new Date().toISOString().slice(0,10)}.pdf`);
+    }
+
+    // Attach wrappers to export buttons to prevent clicks múltiples
+    setTimeout(() => {
+      const btnPlanX = document.getElementById('btnExportPlanillaXLSX');
+      if (btnPlanX) btnPlanX.addEventListener('click', async () => await runAsyncWithButton(btnPlanX, exportPlanillaXLSX, 'Generando...'));
+
+      const btnPlanP = document.getElementById('btnExportPlanillaPDF');
+      if (btnPlanP) btnPlanP.addEventListener('click', async () => await runAsyncWithButton(btnPlanP, exportPlanillaPDF, 'Generando...'));
+
+      const btnSabX = document.getElementById('btnExportSabanaXLSX');
+      if (btnSabX) btnSabX.addEventListener('click', async () => await runAsyncWithButton(btnSabX, exportSabanaXLSX, 'Generando...'));
+
+      const btnSabP = document.getElementById('btnExportSabanaPDF');
+      if (btnSabP) btnSabP.addEventListener('click', async () => await runAsyncWithButton(btnSabP, exportSabanaPDF, 'Generando...'));
+    }, 50);
+  </script>
+</body>
+</html>
